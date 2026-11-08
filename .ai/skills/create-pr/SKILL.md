@@ -1,18 +1,28 @@
 ---
 name: create-pr
-description: Open a pull request (or rewrite an existing PR's description) using this repo's PR template. Short bullet-list summary with the change type on top, filled sections, no "Type of change" or commit list. Links the PR to its GitHub issue (task) if there is one, assigns it, copies the labels, and moves the task to In review. Use when the user asks to "open a PR", "bikin PR", "create pull request", "update PR description", "rapikan deskripsi PR", or after commits are ready on a feature branch.
+description: Open a pull request (or rewrite an existing PR's description) using this repo's PR template. Beginner-friendly bullet-list summary in plain full sentences (what + why) with the change type on top, filled sections, no "Type of change" or commit list. Links the PR to its GitHub issue (task) if there is one, assigns it, copies the labels, and moves the task to In review. Use when the user asks to "open a PR", "bikin PR", "create pull request", "update PR description", "rapikan deskripsi PR", or after commits are ready on a feature branch.
 ---
 
 # Create a PR
 
-Turn the commits on the current branch into a pull request whose description follows [`.github/pull_request_template.md`](../../../.github/pull_request_template.md). The reader is a busy reviewer (or the developer, who is new to Go), so **keep it short and in bullet points**.
+Turn the commits on the current branch into a pull request whose description follows [`.github/pull_request_template.md`](../../../.github/pull_request_template.md). The main reader is the developer, who is **new to Go**, plus a reviewer. The description must be easy to understand without reading the code: bullet points, plain language, and enough explanation that a beginner knows *what* changed and *why it matters*.
 
-Reference example: PR #19 (`feat(setup): init go module, entry point, hooks, and CI`), with the two differences below.
+Reference example: PR #19 (`feat(setup): init go module, entry point, hooks, and CI`), with the differences below.
 
 ## Format rules
 
-- **No "Type of change" section.** The kind of change goes in the **first bullet of Summary**: `- **Type:** feat + ci: <one-line why>`.
-- **Summary is a bullet list**, one bullet per notable change. No paragraphs.
+- **No "Type of change" section.** The kind of change goes in the **first bullet of Summary**: `- **Type:** feat + ci: <why this PR exists, in one full sentence>`.
+- **Summary is a bullet list of full, plain sentences. Not fragments.** Each bullet:
+  - starts with a **bold short name** of the change, then a colon
+  - says **what** it is or does, in 1–2 complete sentences a Go beginner can follow
+  - says **why it matters** or how it's used (the benefit, or what the reader can now do)
+  - explains any jargon in passing (e.g. "a git hook, which is a script git runs automatically before each commit")
+  - stays concise: aim for 1–3 sentences, cut filler words, and don't repeat file paths that the tables below already list
+- No paragraphs outside the bullets.
+
+  Too short (avoid): `- review-task skill: cross-checks PR vs issue`
+
+  Good: `- **review-task skill:** Checks whether a PR really finishes its GitHub issue. It goes through each item of the issue's checklist, looks for proof in the code and in the CI results, and lists what is done and what is still missing, so you know what to fix before merging.`
 - **No commit list** at the bottom. Reviewers see commits in the Commits tab.
 - Every template section stays, in template order. If one doesn't apply, write `- None` (or `None` for tables) instead of deleting it or leaving placeholders.
 - Remove the HTML hint comments (`<!-- ... -->`) from the final body.
@@ -111,9 +121,9 @@ Write the body to a file in the scratchpad (not the repo), using this shape:
 
 ````markdown
 ## Summary
-- **Type:** <type[s]>: <why this PR exists, one line>
-- <notable change 1>
-- <notable change 2>
+- **Type:** <type[s]>: <why this PR exists, in one full sentence>
+- **<change name>:** <what it is/does in plain words>. <why it matters / what you can do now>.
+- **<change name>:** <what it is/does in plain words>. <why it matters / what you can do now>.
 
 ## Related issue
 Closes #<N>
