@@ -218,5 +218,5 @@ Every folder has its own `README.md` explaining what belongs there. Start with [
   - Feature: lowercase kebab-case name of the feature or area (`docs`, `auth`, `customer`, `work-order`, ...)
   - Issue footers: `Refs: #12` (partial), `Closes: #12` (done)
 - Run `make check` before opening a PR. **CI** ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs the same **Lint** (gofmt, go vet) and **Test** (go build, go test -race) jobs on every PR and on pushes to `main`.
-- Open PRs with the [PR template](.github/pull_request_template.md), which GitHub fills in automatically. Remove the sections that don't apply.
+- Open PRs with the [PR template](.github/pull_request_template.md), which GitHub fills in automatically. Keep it short: a bullet-list Summary with the change type first, and `None` for sections that don't apply. AI agents can draft it with the `create-pr` skill.
 - AI agents (Claude Code, Cursor) read [`AGENTS.md`](AGENTS.md). Rules and skills live in [`.ai/`](.ai/README.md).
