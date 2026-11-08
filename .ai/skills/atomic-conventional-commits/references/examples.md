@@ -170,31 +170,31 @@ The work implements GitHub issue #12 (customer CRUD).
 ### Plan (7 commits)
 
 ```
-1. feat(db): add customers table
+1. feat(customer): add customers table migration
    files: db/migrations/00002_create_customers.sql
 
-2. feat(db): add customer queries
+2. feat(customer): add customer queries
    files: db/queries/customers.sql, internal/repository/postgres/sqlc/customers.sql.go
 
-3. feat(domain): add Customer entity and validation
+3. feat(customer): add Customer entity and validation
    files: internal/domain/customer.go, internal/domain/customer_test.go
 
-4. feat(usecase): add customer create/list/update usecases
+4. feat(customer): add create/list/update usecases
    files: internal/usecase/customer.go, internal/usecase/customer_test.go
 
-5. feat(postgres): implement customer repository
+5. feat(customer): add postgres customer repository
    files: internal/repository/postgres/customer_repo.go
 
-6. feat(http): expose /customers endpoints
+6. feat(customer): expose /customers endpoints
    files: internal/delivery/http/customer_handler.go, internal/delivery/http/router.go, cmd/api/main.go
    footer: Refs: #12
 
-7. docs(api): document customer endpoints
+7. docs(customer): document customer endpoints in openapi
    files: api/openapi.yaml
    footer: Closes: #12
 ```
 
-Each commit compiles because the layers land inward-out (DB → domain → usecase → adapters). Generated sqlc code is committed together with the query that produced it. Wiring in `main.go` rides along with the handler, because the route is dead code without it.
+Every commit uses the same feature name, `customer`, so `git log --oneline | grep "(customer)"` shows the whole feature. Each commit compiles because the layers land inward-out (DB → domain → usecase → adapters). Generated sqlc code is committed together with the query that produced it. Wiring in `main.go` rides along with the handler, because the route is dead code without it.
 
 ---
 

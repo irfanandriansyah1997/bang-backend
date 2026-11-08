@@ -141,6 +141,8 @@ If a commit fails (pre-commit hook, lint, tests), fix forward with a **new commi
 
 Subject line: `type(scope): imperative summary`
 
+> In this repo the format is `<type>(<feature>): <message>` with the feature **required**. See [Repo conventions](#repo-conventions-bang-backend).
+
 - **Imperative mood** — "add", not "added" or "adds".
 - **No trailing period.**
 - Aim for ≤ 50 chars, hard cap at 72.
@@ -192,38 +194,54 @@ To unstage a mistake: `git restore --staged path/to/file`, then retry.
 
 Specific to this repository (Go clean architecture; see `docs/architecture.md`). These win over the generic guidance above.
 
-### Scopes
+### Commit format (required)
 
-Use the layer or area that was touched, all lowercase:
+```
+<type>(<feature>): <message>
+```
 
-| Scope | Paths |
+Examples: `feat(docs): adding readme.md with setup steps`, `fix(work-order): reject complete without photos`, `test(health): cover db down case`.
+
+- **type**: required. One of `feat`, `fix`, `refactor`, `perf`, `test`, `docs`, `style`, `build`, `ci`, `chore`, `revert`.
+- **feature**: **required**. Lowercase kebab-case name of the *feature or area* the change belongs to, not the code layer. A commit without `(feature)` is rejected by the `commit-msg` hook.
+- **message**: required. A short description of the change, ≤ 72 chars for the whole subject line. Both "add …" and "adding …" are accepted; keep one style within a branch.
+- **`!`** after `(feature)` marks a breaking change: `feat(auth)!: drop v1 login`.
+
+The `commit-msg` hook (`scripts/hooks/commit-msg.sh`) enforces this; generic guidance above about optional scopes or imperative mood does not apply here.
+
+### Feature names
+
+Use the feature or area from the spec / GitHub issue. Reuse an existing name before inventing a new one (`git log --oneline` shows what's been used).
+
+| Feature | Covers |
 |---|---|
-| `domain` | `internal/domain/**` |
-| `usecase` | `internal/usecase/**` |
-| `http` | `internal/delivery/http/**` |
-| `postgres` | `internal/repository/postgres/**` (incl. sqlc output) |
-| `infra` | `internal/infrastructure/**` |
-| `cmd` | `cmd/**` (wiring in `main.go`) |
-| `db` | `db/migrations/**`, `db/queries/**` |
-| `api` | `api/openapi.yaml` |
-| `docs` | `docs/**`, folder `README.md` files |
+| `docs` | README files, `docs/**` |
 | `ai` | `.ai/**`, `.claude/**`, `.cursor/**`, `AGENTS.md`, `CLAUDE.md` |
-| `build` | `Makefile`, `docker-compose.yml`, `go.mod`, `go.sum`, tooling config |
+| `hooks` | `lefthook.yml`, `scripts/hooks/**` |
+| `setup` | `go.mod`, `Makefile`, `docker-compose.yml`, `.gitignore`, project tooling |
+| `infra` | config, logger, database connection |
+| `health` | `GET /health` |
+| `http` | shared HTTP base: router, middleware, error format, pagination helpers |
+| `auth` | login, refresh, `/me`, JWT, role middleware |
+| `technician` | technician CRUD, deactivate + reassign |
+| `customer` | customer CRUD |
+| `work-order` | work order CRUD, status state machine, assign/cancel/start/complete |
+| `dashboard` | dashboard summary |
+| `support-ticket` | Call Center tickets and attachments |
 
-When a slice delivers one **feature end-to-end** across layers (an issue from the GitHub Project), the feature name can be the scope instead: `feat(work-order): ...`, `feat(auth): ...`.
+The `type` still says *what kind* of change it is, so a docs-only change to a feature is `docs(work-order): ...`, and a test-only change is `test(customer): ...`.
 
 ### Slicing a feature across layers
 
-Prefer one commit per layer, in dependency order, so each commit still compiles:
+Keep the **same feature name** for every commit of a feature and split one commit per layer, in dependency order, so each commit still compiles:
 
-1. `feat(db)`: migration
-2. `feat(db)`: queries + generated sqlc code (commit generated code together with the `.sql` that produced it)
-3. `feat(domain)`: entity + rules + its tests
-4. `feat(usecase)`: usecase + ports + its tests
-5. `feat(postgres)`: repository implementation
-6. `feat(http)`: handler, DTOs, route
-7. `feat(cmd)`: wiring in `main.go`
-8. `docs(api)`: `openapi.yaml`
+1. `feat(customer): add customers table migration`
+2. `feat(customer): add customer queries` (commit generated sqlc code together with the `.sql` that produced it)
+3. `feat(customer): add Customer entity and validation` (domain + its tests)
+4. `feat(customer): add customer usecases` (usecase + ports + its tests)
+5. `feat(customer): add postgres customer repository`
+6. `feat(customer): expose /customers endpoints` (handler, DTOs, route, wiring in `main.go`)
+7. `docs(customer): document customer endpoints in openapi`
 
 Keep tests in the same commit as the code they test (Go tests live next to the code).
 
@@ -236,7 +254,9 @@ Tasks live in GitHub issues on `irfanandriansyah1997/bang-backend`. Put the refe
 
 ### Pre-commit checks
 
-When `.go` files are staged, run `gofmt -l .`, `go vet ./...`, and `go test ./...` before committing, and stop on failure. Skip this when only docs or config change.
+When `.go` files are staged, run `make check` (gofmt, vet, build, test) before committing, and stop on failure. Skip this when only docs or config change.
+
+The lefthook `pre-commit` and `commit-msg` hooks enforce the same checks and the Conventional Commits format. If a hook blocks a commit, fix the cause and commit again. Never pass `--no-verify`.
 
 ### Branch
 

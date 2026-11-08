@@ -2,6 +2,8 @@
 
 The Conventional Commits shape used by this skill.
 
+> **bang-backend:** the subject must be `<type>(<feature>): <message>`. The feature is required, in lowercase kebab-case, and names the feature/area (e.g. `feat(docs): adding readme.md with setup steps`). "add" and "adding" are both accepted. The `commit-msg` hook rejects anything else. Where this file says scope is optional, that does not apply to this repo.
+
 ## Shape
 
 ```
