@@ -1,0 +1,29 @@
+# Git hooks (like husky in Node.js). Install once per clone: `make hooks`.
+# Docs: https://lefthook.dev
+
+pre-commit:
+  parallel: true
+  commands:
+    gofmt:
+      glob: "*.go"
+      run: |
+        files=$(gofmt -l {staged_files})
+        if [ -n "$files" ]; then
+          echo "✗ Not formatted. Run: gofmt -w ."
+          echo "$files"
+          exit 1
+        fi
+    vet:
+      glob: "*.go"
+      run: go vet ./...
+    build:
+      glob: "*.go"
+      run: go build -o /dev/null ./...
+    test:
+      glob: "*.go"
+      run: go test ./...
+
+commit-msg:
+  commands:
+    conventional:
+      run: sh scripts/hooks/commit-msg.sh {1}

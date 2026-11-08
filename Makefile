@@ -1,4 +1,16 @@
-.PHONY: ai-link
+.PHONY: check hooks ai-link
+
+# Run the same checks as the pre-commit hook, on demand.
+check:
+	@files=$$(gofmt -l .); if [ -n "$$files" ]; then echo "✗ Not formatted. Run: gofmt -w ."; echo "$$files"; exit 1; fi
+	go vet ./...
+	go build -o /dev/null ./...
+	go test ./...
+
+# Install git hooks from lefthook.yml (once per clone). Requires: brew install lefthook
+hooks:
+	@command -v lefthook >/dev/null || { echo "lefthook not found. Install it with: brew install lefthook"; exit 1; }
+	lefthook install
 
 # Link the single source of AI rules/skills in .ai/ into .claude/ and .cursor/.
 # Run after adding, renaming, or deleting a file in .ai/rules or .ai/skills.
