@@ -40,5 +40,7 @@ New to Go, ~7 years of frontend (React/TypeScript). When explaining code, compar
 - Never edit a migration that has already been run; add a new one.
 - After changing `db/queries/*.sql`, run `make sqlc`; never edit generated code.
 - Update `api/openapi.yaml` in the same change as an endpoint.
-- Run `go test ./...` and `go vet ./...` before saying a task is done.
+- Run `make check` (gofmt, vet, build, test) before saying a task is done.
+- Commit messages: `<type>(<feature>): <message>`, feature required (e.g. `feat(docs): adding readme.md`). See the `atomic-conventional-commits` skill.
+- Git hooks (lefthook) block commits that fail `make check` or don't match that format. Never bypass them with `--no-verify`; fix the problem instead.
 - AI rules/skills: edit only in `.ai/`, then run `make ai-link`. Never edit the symlinks in `.claude/` or `.cursor/`.

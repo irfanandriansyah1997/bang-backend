@@ -30,6 +30,7 @@ This repo is the backend (`/api/v1`). It is also a learning project for working 
 | Docker runtime | Docker Compose v2 | PostgreSQL (and optional observability stack) | `brew install orbstack` (lighter than Docker Desktop on Apple Silicon) |
 | PostgreSQL | 16 (runs in Docker; no local install needed) | Database | via `docker-compose.yml` |
 | GNU Make | any | Task shortcuts | preinstalled on macOS |
+| lefthook | latest | Git hooks (pre-commit checks, like husky) | `brew install lefthook` |
 | goose | latest | Database migrations | `brew install goose` |
 | sqlc | latest | Generating type-safe Go from SQL | `brew install sqlc` |
 | air | latest | Hot reload in development | `go install github.com/air-verse/air@latest` |
@@ -55,6 +56,22 @@ sqlc version
 git clone https://github.com/irfanandriansyah1997/bang-backend.git
 cd bang-backend
 ```
+
+### 0. Install git hooks (once per clone)
+
+```bash
+brew install lefthook
+make hooks
+```
+
+After this, every `git commit` runs checks first (like husky in Node.js) and is **blocked if any fail**:
+
+| Hook | Runs when | Checks |
+|---|---|---|
+| `pre-commit` | staged `.go` files | `gofmt`, `go vet`, `go build`, `go test` |
+| `commit-msg` | every commit | message is `<type>(<feature>): <message>`, feature required, ≤ 72 chars |
+
+Run the same code checks by hand any time with `make check`. Hooks are configured in [`lefthook.yml`](lefthook.yml).
 
 ### 1. Configure environment *(planned, #2)*
 
@@ -108,6 +125,8 @@ From the **web app** (Vite on `http://localhost:5173`), CORS is allowed for that
 
 | Command | What it does | Status |
 |---|---|---|
+| `make hooks` | Install git hooks (lefthook) | ✅ available |
+| `make check` | gofmt + vet + build + test (same as pre-commit) | ✅ available |
 | `make ai-link` | Symlink AI rules/skills from `.ai/` into `.claude/` and `.cursor/` | ✅ available |
 | `make run` | Run the API once | planned (#2) |
 | `make dev` | Run with hot reload (air) | planned (#2) |
@@ -115,7 +134,6 @@ From the **web app** (Vite on `http://localhost:5173`), CORS is allowed for that
 | `make sqlc` | Regenerate Go code from `db/queries/*.sql` | planned (#5) |
 | `make seed` | Load sample data | planned (#7) |
 | `make test` | `go test ./...` | planned (#2) |
-| `make lint` | `gofmt` + `go vet` | planned (#2) |
 
 Reset the database completely (deletes all data):
 
@@ -193,6 +211,11 @@ Every folder has its own `README.md` explaining what belongs there. Start with [
 
 - Tasks are GitHub issues, grouped by phase labels (`phase-0-foundation` … `phase-4-call-center`) on the [Project board](https://github.com/users/irfanandriansyah1997/projects/1).
 - Follow the layer rules in [`docs/architecture.md`](docs/architecture.md) and the folder READMEs.
-- Commits follow [Conventional Commits](https://www.conventionalcommits.org/) with per-layer scopes (`feat(domain): ...`, `feat(http): ...`) and issue footers (`Refs: #12`, `Closes: #12`).
+- Commit messages use `<type>(<feature>): <message>`, based on [Conventional Commits](https://www.conventionalcommits.org/) with the feature **required**:
+  - `feat(docs): adding readme.md with setup steps`
+  - `fix(work-order): reject complete without photos`
+  - Types: `feat`, `fix`, `refactor`, `perf`, `test`, `docs`, `style`, `build`, `ci`, `chore`, `revert`
+  - Feature: lowercase kebab-case name of the feature or area (`docs`, `auth`, `customer`, `work-order`, ...)
+  - Issue footers: `Refs: #12` (partial), `Closes: #12` (done)
 - Run `go vet ./...` and `go test ./...` before opening a PR.
 - AI agents (Claude Code, Cursor) read [`AGENTS.md`](AGENTS.md). Rules and skills live in [`.ai/`](.ai/README.md).
