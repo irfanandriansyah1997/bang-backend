@@ -5,11 +5,12 @@ Keep every section short and in bullet points. Write "None" for sections that do
 -->
 
 ## Summary
-<!-- First bullet = kind of change (feat / fix / refactor / test / docs / build / ci / chore) + one-line why.
-     Then one bullet per notable change. -->
-- **Type:** feat: <why this PR exists, in one line>
-- <change 1>
-- <change 2>
+<!-- Write so a Go beginner understands it without reading the code.
+     First bullet = kind of change (feat / fix / refactor / test / docs / build / ci / chore) + why, in one full sentence.
+     Then one bullet per notable change: **bold name:** what it does (plain words) + why it matters. 1–3 full sentences, explain jargon. -->
+- **Type:** feat: <why this PR exists, in one full sentence>
+- **<change name>:** <what it does>. <why it matters>.
+- **<change name>:** <what it does>. <why it matters>.
 
 ## Related issue
 <!-- "Closes #N" closes the issue on merge; "Refs #N" only links it. -->
