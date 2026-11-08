@@ -218,6 +218,7 @@ Use the feature or area from the spec / GitHub issue. Reuse an existing name bef
 | `docs` | README files, `docs/**` |
 | `ai` | `.ai/**`, `.claude/**`, `.cursor/**`, `AGENTS.md`, `CLAUDE.md` |
 | `hooks` | `lefthook.yml`, `scripts/hooks/**` |
+| `github` | `.github/**`: CI workflows, PR/issue templates |
 | `setup` | `go.mod`, `Makefile`, `docker-compose.yml`, `.gitignore`, project tooling |
 | `infra` | config, logger, database connection |
 | `health` | `GET /health` |
