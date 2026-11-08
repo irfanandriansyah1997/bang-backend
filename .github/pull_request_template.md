@@ -1,23 +1,19 @@
 <!--
 PR title format: <type>(<feature>): <message>
 e.g. feat(customer): add customer CRUD endpoints
-Delete any section that doesn't apply (write "None" rather than leaving it blank).
+Keep every section short and in bullet points. Write "None" for sections that don't apply.
 -->
 
 ## Summary
-<!-- What does this PR do and why? 1–3 sentences. -->
+<!-- First bullet = kind of change (feat / fix / refactor / test / docs / build / ci / chore) + one-line why.
+     Then one bullet per notable change. -->
+- **Type:** feat: <why this PR exists, in one line>
+- <change 1>
+- <change 2>
 
 ## Related issue
 <!-- "Closes #N" closes the issue on merge; "Refs #N" only links it. -->
 Closes #
-
-## Type of change
-- [ ] `feat`: new feature / endpoint
-- [ ] `fix`: bug fix
-- [ ] `refactor`: no behavior change
-- [ ] `test`: tests only
-- [ ] `docs`: documentation only
-- [ ] `build` / `ci` / `chore`: tooling, CI, dependencies
 
 ## Changes by layer
 <!-- One line per touched layer. Remove the rows you didn't touch. -->
@@ -48,7 +44,7 @@ Closes #
 
 ## Config / environment
 <!-- New env vars, changed defaults, new dependencies. Update .env.example. -->
-None
+- None
 
 ## How to test
 <!-- Steps a reviewer can run locally. Include curl examples for endpoints. -->
@@ -57,11 +53,13 @@ make check
 ```
 
 ## Observability
-<!-- New logs / business events (e.g. work_order.status_changed). Confirm no secrets or personal data are logged. -->
+<!-- New logs / business events (e.g. work_order.status_changed). -->
 - [ ] Logs include `request_id`; no passwords, tokens, or full personal data
 
 ## Risk & rollback
 <!-- What could break? How do we undo it (revert commit, down migration)? -->
+- Risk:
+- Rollback:
 
 ## Checklist
 - [ ] `make check` passes locally (gofmt, vet, build, test)
