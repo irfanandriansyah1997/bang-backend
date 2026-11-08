@@ -29,7 +29,7 @@ Reference example: PR #19 (`feat(setup): init go module, entry point, hooks, and
 - [ ] 4. Draft title + body
 - [ ] 5. Show the draft and get approval
 - [ ] 6. Push + create (or edit) the PR, assign, label, move the task to In review
-- [ ] 7. Check CI
+- [ ] 7. Hand off (no CI wait)
 ```
 
 ### 1. Safety checks
@@ -184,8 +184,12 @@ gh pr view <PR> --json closingIssuesReferences,assignees,labels   # Closes #N sh
 
 `closingIssuesReferences` only lists `Closes`/`Fixes`/`Resolves` links, so it stays empty for `Refs #N`. That's expected.
 
-### 7. Check CI
+### 7. Hand off (don't wait for CI)
 
-Read the PR's checks once (`gh pr checks <N>`, or the host's PR status tool if available) and report them: the `main` ruleset requires **Lint** and **Test** to pass before merge. Don't poll in a loop. If a check fails, show the failing step and suggest the fix.
+**Do not wait for, poll, or re-check CI.** CI (GitHub Actions now, possibly Jenkins later) can take a while and runs on its own. The skill is done as soon as the PR exists.
 
-Finish by giving the user the PR link and suggesting `/review-task <PR> <issue>` before merging.
+Finish with:
+
+- the PR link
+- one line saying CI runs on the server and the `main` ruleset requires **Lint** and **Test** to pass before merge, so the PR shows *BLOCKED* until they report
+- a suggestion to run `/review-task <PR> <issue>` later, once CI has finished. That skill reads the CI results.
