@@ -65,7 +65,10 @@ jobs:
           esac
 
       - name: React to the trigger comment
-        run: gh api "repos/$REPO/issues/comments/$COMMENT_ID/reactions" -f content=eyes >/dev/null
+        id: react
+        run: |
+          id=$(gh api "repos/$REPO/issues/comments/$COMMENT_ID/reactions" -f content=eyes --jq .id)
+          echo "eyes_id=$id" >> "$GITHUB_OUTPUT"
 
       - name: Require green Lint and Test on the PR head
         id: gate
@@ -119,6 +122,7 @@ jobs:
 
       # Runs even when the review fails or is cancelled, so the status never stays "pending".
       - name: Report the final review status
+        id: status
         if: always() && steps.gate.outputs.sha != ''
         env:
           SHA: ${{ steps.gate.outputs.sha }}
@@ -135,6 +139,7 @@ jobs:
               --jq '[.[] | select(.context == env.STATUS_CONTEXT)][0].target_url // empty')
             if [ "$latest" != "$RUN_URL" ]; then
               echo "A newer run owns the status of ${SHA:0:7}; leaving it as it is"
+              echo "state=skipped" >> "$GITHUB_OUTPUT"
               exit 0
             fi
             if [ "$REVIEW_OUTCOME" != "success" ]; then
@@ -169,13 +174,13 @@ jobs:
                 description="Claude did not post a verdict for this commit; comment @claude-code-review to run it again"
               elif [ "$verdict" = "ready" ]; then
                 state=success
-                description="Claude: ready to merge"
+                description="🚀 Claude: ready to merge"
               elif [ "$verdict" = "blocked" ]; then
                 state=failure
-                description="Claude: blocked, see the review comments"
+                description="🔥 Claude: blocked, see the review comments"
               else
                 state=failure
-                description="Claude: needs changes, see the review comments"
+                description="🔥 Claude: needs changes, see the review comments"
               fi
             fi
           fi
@@ -183,3 +188,17 @@ jobs:
             -f state="$state" -f context="$STATUS_CONTEXT" \
             -f description="$description" -f target_url="$RUN_URL" >/dev/null
           echo "Claude Review on ${SHA:0:7}: $state"
+          echo "state=$state" >> "$GITHUB_OUTPUT"
+
+      # Replace the "eyes" reaction on the trigger comment with the result:
+      # rocket = ready to merge, -1 (thumbs down) = needs fixes (GitHub has no fire reaction).
+      - name: Show the result on the trigger comment
+        if: always() && steps.react.outcome == 'success' && (steps.status.outputs.state == 'success' || steps.status.outputs.state == 'failure')
+        env:
+          EYES_ID: ${{ steps.react.outputs.eyes_id }}
+          STATE: ${{ steps.status.outputs.state }}
+        run: |
+          gh api -X DELETE "repos/$REPO/issues/comments/$COMMENT_ID/reactions/$EYES_ID" >/dev/null || true
+          if [ "$STATE" = "success" ]; then reaction=rocket; else reaction="-1"; fi
+          gh api "repos/$REPO/issues/comments/$COMMENT_ID/reactions" -f content="$reaction" >/dev/null
+          echo "Reaction on the trigger comment: $reaction"
