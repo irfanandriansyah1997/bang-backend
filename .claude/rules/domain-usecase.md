@@ -1,0 +1,1 @@
+../../.ai/rules/domain-usecase.md

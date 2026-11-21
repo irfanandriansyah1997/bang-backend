@@ -40,6 +40,18 @@ Extract every checkbox under **Acceptance criteria** and **Definition of Done**.
 - Commits follow `<type>(<feature>): <message>`; `Closes #N` in a commit or the PR body
 - CI **Lint** and **Test** green
 
+### 1b. Code review first
+
+`review-task` checks **scope** (does the PR finish the issue). Code quality is checked by `check-pr`. Look for a `check-pr` summary comment on the PR (it starts with `<!-- check-pr -->`):
+
+```bash
+gh api repos/irfanandriansyah1997/bang-backend/issues/<PR>/comments --paginate \
+  --jq '[.[] | select(.body | startswith("<!-- check-pr -->"))] | last | .body' | head -5
+```
+
+- If there's none, or it was written for an older commit than the PR head, tell the user and suggest commenting `@claude-code-review` (or running `/check-pr <PR>`) first. Continue with the task review anyway.
+- If it says **Blocked** or **Needs changes**, include that in your verdict: the task isn't ready to merge even if every criterion is met.
+
 ### 2. Collect the evidence
 
 ```bash

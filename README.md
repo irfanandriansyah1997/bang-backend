@@ -30,6 +30,7 @@ This repo is the backend (`/api/v1`). It is also a learning project for working 
 | Docker runtime | Docker Compose v2 | PostgreSQL (and optional observability stack) | `brew install orbstack` (lighter than Docker Desktop on Apple Silicon) |
 | PostgreSQL | 16 (runs in Docker; no local install needed) | Database | via `docker-compose.yml` |
 | GNU Make | any | Task shortcuts | preinstalled on macOS |
+| golangci-lint | v2.15+ | Strict lint: formatting, vet, bugs, security (like ESLint + plugins) | `brew install golangci-lint` |
 | lefthook | latest | Git hooks (pre-commit checks, like husky) | `brew install lefthook` |
 | goose | latest | Database migrations | `brew install goose` |
 | sqlc | latest | Generating type-safe Go from SQL | `brew install sqlc` |
@@ -68,7 +69,7 @@ After this, every `git commit` runs checks first (like husky in Node.js) and is 
 
 | Hook | Runs when | Checks |
 |---|---|---|
-| `pre-commit` | staged `.go` files | `gofmt`, `go vet`, `go build`, `go test` |
+| `pre-commit` | staged `.go` files | `golangci-lint` (strict, see `.golangci.yml`), `go build`, `go test` |
 | `commit-msg` | every commit | message is `<type>(<feature>): <message>`, feature required, ≤ 72 chars |
 
 Run the same code checks by hand any time with `make check`. Hooks are configured in [`lefthook.yml`](lefthook.yml).
@@ -126,14 +127,16 @@ From the **web app** (Vite on `http://localhost:5173`), CORS is allowed for that
 | Command | What it does | Status |
 |---|---|---|
 | `make hooks` | Install git hooks (lefthook) | ✅ available |
-| `make check` | gofmt + vet + build + test (same as pre-commit) | ✅ available |
+| `make check` | `make lint` + `make test` (same as CI) | ✅ available |
+| `make lint` | Strict golangci-lint (`.golangci.yml`) | ✅ available |
+| `make fmt` | Fix formatting and import order | ✅ available |
 | `make ai-link` | Symlink AI rules/skills from `.ai/` into `.claude/` and `.cursor/` | ✅ available |
 | `make run` | Run the API once | planned (#2) |
 | `make dev` | Run with hot reload (air) | planned (#2) |
 | `make migrate-up` / `make migrate-down` | Apply / roll back migrations (goose) | planned (#5) |
 | `make sqlc` | Regenerate Go code from `db/queries/*.sql` | planned (#5) |
 | `make seed` | Load sample data | planned (#7) |
-| `make test` | `go test ./...` | planned (#2) |
+| `make test` | `go build` + `go test -race -cover ./...` | ✅ available |
 
 Reset the database completely (deletes all data):
 
@@ -217,6 +220,8 @@ Every folder has its own `README.md` explaining what belongs there. Start with [
   - Types: `feat`, `fix`, `refactor`, `perf`, `test`, `docs`, `style`, `build`, `ci`, `chore`, `revert`
   - Feature: lowercase kebab-case name of the feature or area (`docs`, `auth`, `customer`, `work-order`, ...)
   - Issue footers: `Refs: #12` (partial), `Closes: #12` (done)
-- Run `make check` before opening a PR. **CI** ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs the same **Lint** (gofmt, go vet) and **Test** (go build, go test -race) jobs on every PR and on pushes to `main`.
+- Run `make check` before opening a PR. **CI** ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs the same **Lint** (golangci-lint) and **Test** (go build, go test -race) jobs on every PR and on pushes to `main`.
 - Open PRs with the [PR template](.github/pull_request_template.md), which GitHub fills in automatically. Keep it short: a bullet-list Summary with the change type first, and `None` for sections that don't apply. AI agents can draft it with the `create-pr` skill.
+- **Code review:** once Lint and Test are green, comment `@claude-code-review` on the PR. Claude (Haiku 5.5) posts a verdict (Ready / Needs changes / Blocked), findings, and a table of tested vs missing test cases. The review runs on the maintainer's Claude subscription ([`.github/workflows/claude-review.yml`](.github/workflows/claude-review.yml)). Locally, run `/check-pr <PR>`.
+- **Task review:** `/review-task <PR> <issue>` checks that the PR finishes its issue.
 - AI agents (Claude Code, Cursor) read [`AGENTS.md`](AGENTS.md). Rules and skills live in [`.ai/`](.ai/README.md).

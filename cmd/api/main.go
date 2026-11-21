@@ -14,9 +14,11 @@ func main() {
 }
 
 func run(w io.Writer) error {
-	_, err := fmt.Fprintln(w, startupMessage("Benah API"))
+	if _, err := fmt.Fprintln(w, startupMessage("Benah API")); err != nil {
+		return fmt.Errorf("write startup message: %w", err)
+	}
 
-	return err
+	return nil
 }
 
 func startupMessage(appName string) string {
