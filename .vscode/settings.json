@@ -1,0 +1,22 @@
+{
+  // "golangci-lint-v2" makes the Go extension use v2 flags (v1 flags like --out-format break v2).
+  "go.lintTool": "golangci-lint-v2",
+  // No --fast-only: with it, almost all our linters are skipped (0 issues shown).
+  // A full run on one package takes ~0.6s here, so it's fine on save.
+  "go.lintFlags": ["--path-mode=abs"],
+  "go.lintOnSave": "package",
+
+  "go.formatTool": "custom",
+  "go.formatFlags": ["fmt", "--stdin"],
+
+  // Same binary as `make lint`: the version pinned in the Makefile, installed by `make tools`.
+  "go.alternateTools": {
+    "golangci-lint-v2": "${workspaceFolder}/bin/golangci-lint",
+    "customFormatter": "${workspaceFolder}/bin/golangci-lint"
+  },
+
+  "[go]": {
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": { "source.organizeImports": "explicit" }
+  }
+}

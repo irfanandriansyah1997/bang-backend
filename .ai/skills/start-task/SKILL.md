@@ -1,6 +1,8 @@
 ---
 name: start-task
 description: Brief the developer on a GitHub issue before they start it. Writes a plan file in docs/superpowers/plans/ with what to build, step by step with full source code, and the acceptance criteria and Definition of Done, then gives a short summary in chat. Keeps that file updated when requirements change. Use when the user shares an issue link or number and wants to understand or start the task themselves, e.g. "start issue #2", "jelasin task ini", "apa yang harus dikerjain di <issue link>", "mau kerjain issue berikutnya". Do NOT write the code into the repo; use add-feature for that.
+# Planning and writing code needs a stronger model; Sonnet is half the price of Opus.
+model: sonnet
 ---
 
 # Start a task

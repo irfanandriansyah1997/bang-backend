@@ -1,6 +1,8 @@
 ---
 name: create-pr
 description: Open a pull request (or rewrite an existing PR's description) using this repo's PR template. Beginner-friendly bullet-list summary in plain full sentences (what + why) with the change type on top, filled sections, no "Type of change" or commit list. Links the PR to its GitHub issue (task) if there is one, assigns it, copies the labels, and moves the task to In review. Use when the user asks to "open a PR", "bikin PR", "create pull request", "update PR description", "rapikan deskripsi PR", or after commits are ready on a feature branch.
+# Cheapest Claude model; enough for this workflow. Applies for the rest of the turn.
+model: haiku
 ---
 
 # Create a PR

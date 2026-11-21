@@ -1,6 +1,8 @@
 ---
 name: review-task
 description: Cross-check a pull request against its GitHub issue. Verify every acceptance criterion and Definition of Done item with evidence (files, commands, CI), report what's done and what's missing, then, with the user's OK, comment on the PR or tick the issue checklist. Use when the user gives a PR link and an issue link, or asks "cek PR ini sudah sesuai task?", "review task #N", "apakah issue sudah selesai di PR ini", "cross check PR".
+# Cheapest Claude model; enough for this workflow. Applies for the rest of the turn.
+model: haiku
 ---
 
 # Review a task (PR ↔ issue)

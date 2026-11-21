@@ -1,6 +1,8 @@
 ---
 name: atomic-conventional-commits
 description: Split working-tree changes into small, atomic git commits with Conventional Commits messages. Use whenever the user asks to commit, save work, stage files, prep a branch for review, or split one mixed diff into multiple focused commits — including terse prompts like "commit this", "commit these changes", "split into commits", "ship it", or "wrap up". Also use when the agent notices the working tree mixes unrelated concerns before a commit.
+# Cheapest Claude model; enough for this workflow. Applies for the rest of the turn.
+model: haiku
 ---
 
 # Atomic Conventional Commits

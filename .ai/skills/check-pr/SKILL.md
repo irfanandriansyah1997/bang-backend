@@ -1,6 +1,8 @@
 ---
 name: check-pr
 description: Decide whether a pull request's code is ready to merge. Lint and unit tests act as a gate, then a review covers architecture, common Go mistakes, primary test cases (tested vs missing), and repo conventions, ending in a verdict of Ready, Needs changes, or Blocked, with every finding explained for a Go beginner. Use when the user asks "cek PR ini", "review PR #N", "is this PR ready to merge", "check-pr", or when the @claude-code-review workflow runs it with --ci.
+# Cheapest Claude model; enough for this workflow. Applies for the rest of the turn.
+model: haiku
 ---
 
 # Check a PR
