@@ -203,5 +203,5 @@ Finish with:
 - the PR link
 - one line saying CI runs on the server and the `main` ruleset requires **Lint** and **Test** to pass before merge, so the PR shows *BLOCKED* until they report
 - the next steps, once CI is green:
-  1. **Code review:** comment `@claude-code-review` on the PR (add `deep` for a stronger model), or run `/check-pr <PR>` locally. This answers "is the code ready to merge?"
+  1. **Code review:** comment `@claude-code-review` on the PR, or run `/check-pr <PR>` locally. This answers "is the code ready to merge?"
   2. **Task review:** `/review-task <PR> <issue>`. This answers "does the PR finish the issue?"
