@@ -113,7 +113,7 @@ func TestRun_ShutDownOnCancel(t *testing.T) {
 	}
 }
 
-// waitForLog polls the log file until it contaiuns want, or fails after 5 seconds.
+// waitForLog polls the log file until it contains want, or fails after 5 seconds.
 func waitForLog(t *testing.T, path, want string) {
 	t.Helper()
 
@@ -123,6 +123,7 @@ func waitForLog(t *testing.T, path, want string) {
 			return
 		}
 
+		// Sleep is fine here: we poll a file written by another goroutine, and there is no signal to wait on.
 		time.Sleep(20 * time.Millisecond)
 	}
 

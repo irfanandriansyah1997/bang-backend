@@ -48,8 +48,8 @@ func TestLog_Shapes(t *testing.T) {
 		t.Errorf("line 1 must not have payload: %v", lines[0])
 	}
 
-	if _, ok := lines[0]["sdd"]; ok {
-		t.Errorf("line 1 must not have sdd: %v", lines[0])
+	if _, ok := lines[0]["sdc"]; ok {
+		t.Errorf("line 1 must not have sdc: %v", lines[0])
 	}
 
 	payload, _ := lines[1]["payload"].(map[string]any)
@@ -108,7 +108,7 @@ func TestLog_Levels(t *testing.T) {
 
 	lines := readLines(t, &buf)
 	if len(lines) != 3 {
-		t.Fatalf("got %d lines, wanth 3 (debug logger must be dropped)", len(lines))
+		t.Fatalf("got %d lines, want 3 (debug logger must be dropped)", len(lines))
 	}
 
 	for i, want := range []string{"INFO", "WARN", "ERROR"} {
@@ -137,7 +137,7 @@ func TestContext_RequestIDAndSDC(t *testing.T) {
 	if sdc["user_id"] != "7" || sdc["work_order_id"] != "12" || sdc["role"] != "admin" {
 		t.Errorf("sdc = %v, want user_id=7, work_order_id=12, role=admin", sdc)
 	}
-	if _, ok := lines[1]["x_requested_id"]; ok {
+	if _, ok := lines[1]["x_request_id"]; ok {
 		t.Errorf("line 2 should be without context must not have x_request_id: %v", lines[1])
 	}
 }
