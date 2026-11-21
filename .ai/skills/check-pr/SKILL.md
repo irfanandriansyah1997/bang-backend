@@ -94,14 +94,18 @@ Also check by reading: thin handlers, business rules only in domain/usecase, dep
 
 ### 4. Grade findings and pick the verdict
 
-| Severity | Use for |
-|---|---|
-| **blocker** | Architecture rule broken, secret or personal data in logs or code, SQL injection, error ignored on an important path, new logic with no tests at all |
-| **major** | A primary test case missing, `ctx` not passed on, resource not closed, error not wrapped where the caller can't tell what failed, OpenAPI not updated, migration without `Down` |
-| **minor** | Unclear name, long function, missing doc comment on something non-obvious |
-| **nit** | Style preference |
+**Report only what can cause an error, a regression, or a breaking change** (for API clients, the database, env/config, or public function signatures), plus security and data problems. Too many comments bury the ones that matter, so style, naming, docs, and "nice to have" tests are **not reported at all**.
 
-**Verdict:** any blocker → **Blocked** · else any major → **Needs changes** · else **Ready** (minor/nit listed as suggestions).
+| Severity | Use for | Reported? |
+|---|---|---|
+| **blocker** | Architecture rule broken, secret or personal data in logs or code, SQL injection, error ignored on an important path, a breaking change nobody planned for, new logic with no tests at all | ✅ inline comment |
+| **major** | A likely bug or runtime error, a primary test case missing, `ctx` not passed on, resource not closed, error not wrapped where the caller can't tell what failed, OpenAPI not updated, migration without `Down`, breaking change to an API, column, or env variable | ✅ inline comment |
+| **minor** | A real but small risk of an error or regression that is quick to fix (e.g. a missing test that could hide a bug, a default that is unsafe outside local) | ✅ inline comment |
+| **nit** | Style, naming, doc comments, long functions, formatting, optional tests, wording in the PR body | ❌ never reported, not even in the summary |
+
+If you are not sure that something can really cause an error or a regression, it is a nit: leave it out.
+
+**Verdict:** any blocker → **Blocked** · else any major → **Needs changes** · else **Ready** (minor findings are still reported). The workflow turns the verdict into the PR status: **Ready → success, Needs changes or Blocked → failure**.
 
 Don't invent findings to fill the report. A clean PR is **Ready** with "no findings". When unsure whether something is a real problem, say so, and mark it minor at most.
 
@@ -117,7 +121,7 @@ Findings go **on the lines they are about**, one comment per finding. The develo
 | **Summary comment**, one per PR | The PR conversation | Verdict, counts, test-cases table, conventions, and findings that can't go on a diff line |
 
 **Inline comment rules:**
-- **Every finding gets its own inline comment**, at every severity (blocker, major, minor, nit), as long as its line is part of the PR diff. Don't bundle several findings into one comment. If the same problem appears on several lines, comment on each line. From the 2nd occurrence on, the comment can be short and point to the first.
+- **Every reported finding (blocker, major, minor) gets its own inline comment**, as long as its line is part of the PR diff. Don't bundle several findings into one comment. If the same problem appears on several lines, comment on each line. From the 2nd occurrence on, the comment can be short and point to the first.
 - **Add a `suggestion` block whenever the fix is a direct change to the commented lines**, so the developer can click *Commit suggestion* on GitHub:
 
   ````markdown
@@ -130,9 +134,16 @@ Findings go **on the lines they are about**, one comment per finding. The develo
   - Keep the original indentation (Go uses tabs) and write code that compiles and passes `make lint`.
   - When the fix touches other lines, adds a new file, or is a test to add, use a normal ` ```go ` block instead and say where it goes.
 - Only comment on lines that are in the diff (added, or context lines in a changed hunk). Findings about unchanged code, missing files, or the PR as a whole go in the summary.
-- Order of posting: blocker → major → minor → nit. Up to **30 inline comments**; if there are more, put the rest in the summary as a list with `file:line`.
+- Order of posting: blocker → major → minor. Up to **10 inline comments**; if there are more minors, put the rest in the summary as a list with `file:line` and no extra comment.
 
-**Summary comment rules:** short, starts with the marker `<!-- check-pr -->`, and **does not repeat** what the inline comments already say. It links to them by listing `file:line` + title.
+**Summary comment rules:** short, **does not repeat** what the inline comments already say, and links to them by listing `file:line` + title. Its first two lines are machine-readable markers:
+
+```
+<!-- check-pr -->
+<!-- check-pr-verdict: <ready|needs-changes|blocked>; commit: <full 40-character head sha> -->
+```
+
+The workflow reads the second line to set the **Claude Review** status (ready → success, otherwise failure) and checks that `commit` is the PR head it started with. Write the verdict exactly as above, with the full SHA from `headRefOid`.
 
 **Local mode:**
 - Show the report in chat in the user's language. Use the same structure, with each finding under its `file:line`, plus the suggestion.

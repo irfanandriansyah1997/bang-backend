@@ -54,8 +54,8 @@ Things to look for in the diff. Strict lint (`.golangci.yml`) already catches ma
 | Look for | Why it matters | Fix | Severity |
 |---|---|---|---|
 | Interface defined next to its implementation (in `repository/`) | Couples usecase to the database package | Define it in `usecase`, where it's used | major |
-| Big interfaces (5+ methods) | Hard to fake in tests | Split into small ones | minor |
-| Returning an interface from a constructor | Hides the concrete type for no reason | Return the concrete struct (`*Repo`) | minor |
+| Big interfaces (5+ methods) | Hard to fake in tests | Split into small ones | nit (not reported) |
+| Returning an interface from a constructor | Hides the concrete type for no reason | Return the concrete struct (`*Repo`) | nit (not reported) |
 | Pointer to a pointer, or pointer to an interface | Almost always a mistake | Use the value or the interface directly | major |
 | `time.Now()` inside domain | Tests depend on the wall clock | Take `now time.Time` as a parameter | major |
-| Exported identifiers without a doc comment | `revive` will flag it; readers don't know the contract | One-line comment starting with the name | minor |
+| Exported identifiers without a doc comment | `revive` will flag it; readers don't know the contract | One-line comment starting with the name | nit (not reported) |

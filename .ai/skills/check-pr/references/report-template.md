@@ -2,6 +2,8 @@
 
 Two kinds of comments: **one inline comment per finding**, on its line in the PR diff, and **one short summary comment** on the PR. Each finding is explained next to its code so a Go beginner sees the context. The summary doesn't repeat what the inline comments say.
 
+Only blocker, major, and minor findings are reported, and only when they can cause an error, a regression, or a breaking change. Style, naming, doc comments, and optional tests (nits) are never reported.
+
 ## 1. Inline comment (one per finding)
 
 Post on the exact line (or line range) the finding is about.
@@ -44,10 +46,9 @@ Rules for the `suggestion` block:
 The first occurrence gets the full comment. Later ones stay short, but still include a suggestion when one fits:
 
 ````markdown
-**💡 minor · Same as `logger.go:73`**: exported function needs a doc comment.
+**⚠️ major · Same as `logger.go:73`**: error returned without context.
 ```suggestion
-// OpenFile opens (or creates) the log file, creating its folder if needed.
-func OpenFile(path string) (*os.File, error) {
+		return nil, fmt.Errorf("logger: open log file: %w", err)
 ```
 ````
 
@@ -57,15 +58,17 @@ func OpenFile(path string) (*os.File, error) {
 |---|---|
 | `**⛔ blocker · …**` | Must fix before merge |
 | `**⚠️ major · …**` | Should fix before merge |
-| `**💡 minor · …**` | Worth fixing, doesn't block |
-| `**✏️ nit · …**` | Optional style |
+| `**💡 minor · …**` | Small risk of an error or regression; worth fixing, doesn't block |
+
+There is no label for nits: they are not reported.
 
 ## 2. Summary comment (one per PR)
 
-The first line must be the marker, so later runs update this comment instead of adding a new one.
+The first line must be the marker, so later runs update this comment instead of adding a new one. The second line is the verdict marker: the workflow reads it to set the **Claude Review** status (`ready` → success, `needs-changes` or `blocked` → failure) and compares `commit` with the PR head. Use the full 40-character SHA (`headRefOid`).
 
 ````markdown
 <!-- check-pr -->
+<!-- check-pr-verdict: <ready|needs-changes|blocked>; commit: <full 40-character sha> -->
 ## 🔍 PR check: <Ready ✅ | Needs changes ⚠️ | Blocked ⛔>
 
 **Commit:** `<short sha>` · **Model:** <model> · **Gate:** Lint ✅ Test ✅
@@ -77,9 +80,8 @@ The first line must be the marker, so later runs update this comment instead of 
 | ⛔ blocker | <n> |
 | ⚠️ major | <n> |
 | 💡 minor | <n> |
-| ✏️ nit | <n> |
 
-**Inline comments:** every finding is commented on its line; most have a suggestion you can apply with *Commit suggestion*.
+**Inline comments:** every finding is commented on its line; most have a suggestion you can apply with *Commit suggestion*. (At most 10 inline comments; extra minors are listed here only.)
 - ⛔ `internal/x.go:42`: <short title>
 - ⚠️ `internal/y.go:10`: <short title>
 - …
@@ -88,10 +90,13 @@ The first line must be the marker, so later runs update this comment instead of 
 <Findings about unchanged code, missing files, or the whole PR, in What / Why / Fix form. Or "None".>
 
 ### Test cases
+List the primary cases of new or changed logic. Group the tested ones in one row.
+
 | Function | Case | Status |
 |---|---|---|
-| `WorkOrder.Start` | from `assigned` → `in_progress` | ✅ tested |
+| `WorkOrder.Start` | happy path and invalid inputs | ✅ tested |
 | | from `completed` → `ErrInvalidTransition` | ❌ missing (see inline comment) |
+| | edge case that guards nothing risky | ❌ missing (table only, no comment) |
 
 ### Conventions
 - Commits: ✅ / ❌ `<subject>`
@@ -105,8 +110,8 @@ The first line must be the marker, so later runs update this comment instead of 
 ## Writing rules
 
 - One finding = one inline comment. Never merge several findings into one comment.
-- Every blocker and major has **What / Why it matters / Fix**. Minor and nit can be one line plus a suggestion.
+- Every blocker and major has **What / Why it matters / Fix**. Minor can be one line plus a suggestion.
 - Plain language for a beginner; explain each Go term the first time it appears.
 - Suggestions must be correct: right indentation, compiles, passes lint. If you're not sure, use a plain ` ```go ` example instead.
-- No invented findings. Write "None" in sections with nothing to report.
+- No invented findings, and no nits. If you are not sure something can cause an error or a regression, leave it out. Write "None" in sections with nothing to report.
 - Never paste secrets; point to `file:line`.
