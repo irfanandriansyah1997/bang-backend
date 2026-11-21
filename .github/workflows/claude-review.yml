@@ -191,7 +191,7 @@ jobs:
           echo "state=$state" >> "$GITHUB_OUTPUT"
 
       # Replace the "eyes" reaction on the trigger comment with the result:
-      # rocket = ready to merge, confused = needs fixes (GitHub has no fire reaction).
+      # rocket = ready to merge, -1 (thumbs down) = needs fixes (GitHub has no fire reaction).
       - name: Show the result on the trigger comment
         if: always() && steps.react.outcome == 'success' && (steps.status.outputs.state == 'success' || steps.status.outputs.state == 'failure')
         env:
@@ -199,6 +199,6 @@ jobs:
           STATE: ${{ steps.status.outputs.state }}
         run: |
           gh api -X DELETE "repos/$REPO/issues/comments/$COMMENT_ID/reactions/$EYES_ID" >/dev/null || true
-          if [ "$STATE" = "success" ]; then reaction=rocket; else reaction=confused; fi
+          if [ "$STATE" = "success" ]; then reaction=rocket; else reaction="-1"; fi
           gh api "repos/$REPO/issues/comments/$COMMENT_ID/reactions" -f content="$reaction" >/dev/null
           echo "Reaction on the trigger comment: $reaction"

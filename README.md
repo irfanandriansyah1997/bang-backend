@@ -7,7 +7,7 @@ Go + PostgreSQL REST API for **Benah**, a field service / work order app:
 
 This repo is the backend (`/api/v1`). It is also a learning project for working the way a Forward Deployed Engineer (FDE) does. See the [spec](docs/superpowers/specs/rencana-belajar-fullstack-fde.md).
 
-> **Status: Phase 0 (foundation).** The folder structure and docs are in place, but there is **no Go code yet**. Commands marked *(planned)* below will work once their issue is done. Track progress on the [GitHub Project](https://github.com/users/irfanandriansyah1997/projects/1).
+> **Status: Phase 0 (foundation).** The folder structure and docs are in place, but there is **no Go code yet**. Commands marked _(planned)_ below will work once their issue is done. Track progress on the [GitHub Project](https://github.com/users/irfanandriansyah1997/projects/1).
 
 ---
 
@@ -15,28 +15,28 @@ This repo is the backend (`/api/v1`). It is also a learning project for working 
 
 ### Hardware
 
-| | Backend only | Full stack (backend + web + Android emulator + Kibana) |
-|---|---|---|
-| CPU | Any 64-bit (Apple Silicon or x86_64) | Apple Silicon M1/M2 or equivalent |
-| RAM | 8 GB | **16 GB** (run Elasticsearch/Kibana only when needed) |
-| Disk | ~5 GB free | ~30 GB free (Android Studio + emulator images) |
-| OS | macOS, Linux, or Windows with WSL2 | macOS recommended (the project is developed on macOS) |
+|      | Backend only                         | Full stack (backend + web + Android emulator + Kibana) |
+| ---- | ------------------------------------ | ------------------------------------------------------ |
+| CPU  | Any 64-bit (Apple Silicon or x86_64) | Apple Silicon M1/M2 or equivalent                      |
+| RAM  | 8 GB                                 | **16 GB** (run Elasticsearch/Kibana only when needed)  |
+| Disk | ~5 GB free                           | ~30 GB free (Android Studio + emulator images)         |
+| OS   | macOS, Linux, or Windows with WSL2   | macOS recommended (the project is developed on macOS)  |
 
 ### Software
 
-| Tool | Version | Needed for | Install (macOS) |
-|---|---|---|---|
-| Go | **1.22+** (needed for method/path routing in `net/http`) | Building and running the API | `brew install go` |
-| Docker runtime | Docker Compose v2 | PostgreSQL (and optional observability stack) | `brew install orbstack` (lighter than Docker Desktop on Apple Silicon) |
-| PostgreSQL | 16 (runs in Docker; no local install needed) | Database | via `docker-compose.yml` |
-| GNU Make | any | Task shortcuts | preinstalled on macOS |
-| golangci-lint | v2.15+ | Strict lint: formatting, vet, bugs, security (like ESLint + plugins) | `brew install golangci-lint` |
-| lefthook | latest | Git hooks (pre-commit checks, like husky) | `brew install lefthook` |
-| goose | latest | Database migrations | `brew install goose` |
-| sqlc | latest | Generating type-safe Go from SQL | `brew install sqlc` |
-| air | latest | Hot reload in development | `go install github.com/air-verse/air@latest` |
-| API client | — | Testing endpoints | curl, [Bruno](https://www.usebruno.com/), or Postman |
-| DB viewer | — | Inspecting data (optional) | TablePlus or DBeaver |
+| Tool           | Version                                                  | Needed for                                                           | Install (macOS)                                                        |
+| -------------- | -------------------------------------------------------- | -------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| Go             | **1.22+** (needed for method/path routing in `net/http`) | Building and running the API                                         | `brew install go`                                                      |
+| Docker runtime | Docker Compose v2                                        | PostgreSQL (and optional observability stack)                        | `brew install orbstack` (lighter than Docker Desktop on Apple Silicon) |
+| PostgreSQL     | 16 (runs in Docker; no local install needed)             | Database                                                             | via `docker-compose.yml`                                               |
+| GNU Make       | any                                                      | Task shortcuts                                                       | preinstalled on macOS                                                  |
+| golangci-lint  | v2.15+                                                   | Strict lint: formatting, vet, bugs, security (like ESLint + plugins) | `brew install golangci-lint`                                           |
+| lefthook       | latest                                                   | Git hooks (pre-commit checks, like husky)                            | `brew install lefthook`                                                |
+| goose          | latest                                                   | Database migrations                                                  | `brew install goose`                                                   |
+| sqlc           | latest                                                   | Generating type-safe Go from SQL                                     | `brew install sqlc`                                                    |
+| air            | latest                                                   | Hot reload in development                                            | `go install github.com/air-verse/air@latest`                           |
+| API client     | —                                                        | Testing endpoints                                                    | curl, [Bruno](https://www.usebruno.com/), or Postman                   |
+| DB viewer      | —                                                        | Inspecting data (optional)                                           | TablePlus or DBeaver                                                   |
 
 Optional, for observability: Elasticsearch, Kibana, and Filebeat run as a Docker Compose profile and need about 1.5–2 GB of extra RAM.
 
@@ -67,42 +67,42 @@ make hooks
 
 After this, every `git commit` runs checks first (like husky in Node.js) and is **blocked if any fail**:
 
-| Hook | Runs when | Checks |
-|---|---|---|
-| `pre-commit` | staged `.go` files | `golangci-lint` (strict, see `.golangci.yml`), `go build`, `go test` |
-| `commit-msg` | every commit | message is `<type>(<feature>): <message>`, feature required, ≤ 72 chars |
+| Hook         | Runs when          | Checks                                                                  |
+| ------------ | ------------------ | ----------------------------------------------------------------------- |
+| `pre-commit` | staged `.go` files | `golangci-lint` (strict, see `.golangci.yml`), `go build`, `go test`    |
+| `commit-msg` | every commit       | message is `<type>(<feature>): <message>`, feature required, ≤ 72 chars |
 
 Run the same code checks by hand any time with `make check`. Hooks are configured in [`lefthook.yml`](lefthook.yml).
 
-### 1. Configure environment *(planned, #2)*
+### 1. Configure environment _(planned, #2)_
 
 ```bash
 cp .env.example .env
 ```
 
-| Variable | Example | Purpose |
-|---|---|---|
-| `PORT` | `8080` | HTTP port |
-| `DATABASE_URL` | `postgres://app:app@localhost:5432/fieldservice?sslmode=disable` | Postgres connection |
-| `JWT_SECRET` | any long random string | Signs access/refresh tokens |
-| `ELASTIC_VERSION` | e.g. `9.x.x` | Only for the observability profile |
+| Variable          | Example                                                          | Purpose                            |
+| ----------------- | ---------------------------------------------------------------- | ---------------------------------- |
+| `PORT`            | `8080`                                                           | HTTP port                          |
+| `DATABASE_URL`    | `postgres://app:app@localhost:5432/fieldservice?sslmode=disable` | Postgres connection                |
+| `JWT_SECRET`      | any long random string                                           | Signs access/refresh tokens        |
+| `ELASTIC_VERSION` | e.g. `9.x.x`                                                     | Only for the observability profile |
 
 Never commit `.env`. It is already in `.gitignore`.
 
-### 2. Start PostgreSQL *(planned, #2)*
+### 2. Start PostgreSQL _(planned, #2)_
 
 ```bash
 docker compose up -d
 ```
 
-### 3. Migrate and seed *(planned, #5, #7)*
+### 3. Migrate and seed _(planned, #5, #7)_
 
 ```bash
 make migrate-up
 make seed           # 1 admin, 3 technicians, 5 customers, ~10 work orders
 ```
 
-### 4. Run the API *(planned, #2, #4)*
+### 4. Run the API _(planned, #2, #4)_
 
 ```bash
 make dev            # hot reload with air
@@ -124,19 +124,19 @@ From the **web app** (Vite on `http://localhost:5173`), CORS is allowed for that
 
 ## Common commands
 
-| Command | What it does | Status |
-|---|---|---|
-| `make hooks` | Install git hooks (lefthook) | ✅ available |
-| `make check` | `make lint` + `make test` (same as CI) | ✅ available |
-| `make lint` | Strict golangci-lint (`.golangci.yml`) | ✅ available |
-| `make fmt` | Fix formatting and import order | ✅ available |
-| `make ai-link` | Symlink AI rules/skills from `.ai/` into `.claude/` and `.cursor/` | ✅ available |
-| `make run` | Run the API once | planned (#2) |
-| `make dev` | Run with hot reload (air) | planned (#2) |
-| `make migrate-up` / `make migrate-down` | Apply / roll back migrations (goose) | planned (#5) |
-| `make sqlc` | Regenerate Go code from `db/queries/*.sql` | planned (#5) |
-| `make seed` | Load sample data | planned (#7) |
-| `make test` | `go build` + `go test -race -cover ./...` | ✅ available |
+| Command                                 | What it does                                                       | Status       |
+| --------------------------------------- | ------------------------------------------------------------------ | ------------ |
+| `make hooks`                            | Install git hooks (lefthook)                                       | ✅ available |
+| `make check`                            | `make lint` + `make test` (same as CI)                             | ✅ available |
+| `make lint`                             | Strict golangci-lint (`.golangci.yml`)                             | ✅ available |
+| `make fmt`                              | Fix formatting and import order                                    | ✅ available |
+| `make ai-link`                          | Symlink AI rules/skills from `.ai/` into `.claude/` and `.cursor/` | ✅ available |
+| `make run`                              | Run the API once                                                   | planned (#2) |
+| `make dev`                              | Run with hot reload (air)                                          | planned (#2) |
+| `make migrate-up` / `make migrate-down` | Apply / roll back migrations (goose)                               | planned (#5) |
+| `make sqlc`                             | Regenerate Go code from `db/queries/*.sql`                         | planned (#5) |
+| `make seed`                             | Load sample data                                                   | planned (#7) |
+| `make test`                             | `go build` + `go test -race -cover ./...`                          | ✅ available |
 
 Reset the database completely (deletes all data):
 
@@ -144,7 +144,7 @@ Reset the database completely (deletes all data):
 docker compose down -v
 ```
 
-### Observability (optional) *(planned)*
+### Observability (optional) _(planned)_
 
 ```bash
 docker compose --profile observability up -d     # + Elasticsearch, Kibana, Filebeat
@@ -222,11 +222,7 @@ Every folder has its own `README.md` explaining what belongs there. Start with [
   - Issue footers: `Refs: #12` (partial), `Closes: #12` (done)
 - Run `make check` before opening a PR. **CI** ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs the same **Lint** (golangci-lint) and **Test** (go build, go test -race) jobs on every PR and on pushes to `main`.
 - Open PRs with the [PR template](.github/pull_request_template.md), which GitHub fills in automatically. Keep it short: a bullet-list Summary with the change type first, and `None` for sections that don't apply. AI agents can draft it with the `create-pr` skill.
-<<<<<<< HEAD
-- **Code review:** once Lint and Test are green, comment `@claude-code-review` on the PR. Claude (Sonnet 5.5) posts a verdict (Ready / Needs changes / Blocked), findings, and a table of tested vs missing test cases. The review runs on the maintainer's Claude subscription ([`.github/workflows/claude-review.yml`](.github/workflows/claude-review.yml)). Locally, run `/check-pr <PR>`. The review **only comments**: it never edits files, commits, or pushes, and the engineer decides which findings to fix. Claude reports only what can cause an error, a regression, or a breaking change (blocker, major, minor), at most 10 inline comments, and no style nits. While it runs, the PR shows a commit status named **Claude Review**: pending, then **success when Claude says the code is ready to merge** and **failure when it says needs changes or blocked** (or the review failed). The status follows the review's verdict, not just whether the job ran. When a new commit is pushed, a second workflow ([`claude-review-outdated.yml`](.github/workflows/claude-review-outdated.yml)) resets that status to pending ("no review for this commit yet"), so a review of an older commit never counts for the new one. Comment `@claude-code-review` again to review it. Making this status and resolved review threads a merge requirement is the second step of issue #30 and needs a ruleset change after this workflow is on `main`.
-=======
 - **Code review:** once Lint and Test are green, comment `@claude-code-review` on the PR. Claude (Sonnet 5.5) posts a verdict (Ready / Needs changes / Blocked), findings, and a table of tested vs missing test cases. The review runs on the maintainer's Claude subscription ([`.github/workflows/claude-review.yml`](.github/workflows/claude-review.yml)). Locally, run `/check-pr <PR>`. The review **only comments**: it never edits files, commits, or pushes, and the engineer decides which findings to fix. Claude reports only what can cause an error, a regression, or a breaking change (blocker and major for now; minor findings and style nits are ignored), at most 10 inline comments. While it runs, the PR shows a commit status named **Claude Review**: pending, then **success when Claude says the code is ready to merge** and **failure when it says needs changes or blocked** (or the review failed). The status follows the review's verdict, not just whether the job ran. When a new commit is pushed, a second workflow ([`claude-review-outdated.yml`](.github/workflows/claude-review-outdated.yml)) resets that status to pending ("no review for this commit yet"), so a review of an older commit never counts for the new one. Comment `@claude-code-review` again to review it. Making this status and resolved review threads a merge requirement is the second step of issue #30 and needs a ruleset change after this workflow is on `main`.
 - **Review result icon:** while Claude reviews, your `@claude-code-review` comment shows 👀. When the review ends it changes to 🚀 if the code can be merged (no blocker or major finding; a PR with only minor findings can still merge and `Claude Review` stays green), or to 😕 if it needs fixes first. GitHub has no 🔥 reaction, so the 🔥 appears in the `Claude Review` status text instead.
->>>>>>> d194cf6 (feat(github): show the review result as a reaction on the comment)
 - **Task review:** `/review-task <PR> <issue>` checks that the PR finishes its issue.
 - AI agents (Claude Code, Cursor) read [`AGENTS.md`](AGENTS.md). Rules and skills live in [`.ai/`](.ai/README.md).
