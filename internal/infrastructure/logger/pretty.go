@@ -11,6 +11,8 @@ type prettyWriter struct {
 	w io.Writer
 }
 
+// NewPrettyWriter wraps w so each JSON line is printed indented.
+// Use it for the terminal in local development only.
 func NewPrettyWriter(w io.Writer) io.Writer {
 	return prettyWriter{w: w}
 }

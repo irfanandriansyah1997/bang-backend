@@ -6,6 +6,7 @@ import (
 	"os"
 )
 
+// Config holds the app settings read from environment variables.
 type Config struct {
 	Port        string
 	DatabaseURL string
@@ -16,10 +17,12 @@ type Config struct {
 	AppVersion  string
 }
 
+// Load reads the config from the real environment.
 func Load() (Config, error) {
 	return LoadFrom(os.Getenv)
 }
 
+// LoadFrom reads the config using getenv, so tests can pass a fake one.
 func LoadFrom(getenv func(string) string) (Config, error) {
 	cfg := Config{
 		Port:        valueOr(getenv("PORT"), "8080"),
@@ -38,6 +41,7 @@ func LoadFrom(getenv func(string) string) (Config, error) {
 	return cfg, nil
 }
 
+// LogValue controls how Config looks in logs. Secrets are left out on purpose.
 func (c Config) LogValue() slog.Value {
 	return slog.GroupValue(
 		slog.String("port", c.Port),
@@ -50,5 +54,6 @@ func valueOr(value, fallback string) string {
 	if value == "" {
 		return fallback
 	}
+
 	return value
 }
