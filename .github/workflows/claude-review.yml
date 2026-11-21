@@ -1,7 +1,7 @@
 name: Claude Review
 
 # Comment "@claude-code-review" on a pull request to get a review from Claude
-# Haiku 5.5. Runs on the Claude Pro subscription via the
+# Sonnet 5.5. Runs on the Claude Pro subscription via the
 # CLAUDE_CODE_OAUTH_TOKEN secret (created with `claude setup-token`).
 #
 # The review only writes comments. It never edits files, commits, pushes, or
@@ -10,7 +10,9 @@ name: Claude Review
 # explicitly. The engineer reads the comments and decides what to fix.
 #
 # The run also reports a commit status named "Claude Review" on the PR head:
-# pending while it runs, success when it finishes, failure otherwise. An
+# pending while it runs, then the review's verdict: success when Claude says the
+# code is ready to merge, failure when it says needs changes or blocked (or the
+# review failed). The status follows the verdict, not whether the job ran. An
 # issue_comment job runs on main, so its own check would never show on the PR;
 # a commit status is how the PR (and the main ruleset) can see it.
 on:
@@ -50,7 +52,7 @@ jobs:
       PR: ${{ github.event.issue.number }}
       COMMENT_ID: ${{ github.event.comment.id }}
       COMMENTER: ${{ github.event.comment.user.login }}
-      MODEL: claude-haiku-5-5 # cheapest model; change here to try another one
+      MODEL: claude-sonnet-5-5 # the review decides the merge status, so use a stronger model; claude-haiku-5-5 is the cheap one
       STATUS_CONTEXT: Claude Review # name of the commit status (the ruleset uses this name)
       RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
     steps:
@@ -135,12 +137,46 @@ jobs:
               echo "A newer run owns the status of ${SHA:0:7}; leaving it as it is"
               exit 0
             fi
-            if [ "$REVIEW_OUTCOME" = "success" ]; then
-              state=success
-              description="Claude finished reviewing this commit"
-            else
+            if [ "$REVIEW_OUTCOME" != "success" ]; then
               state=failure
               description="The review failed or was cancelled; comment @claude-code-review to run it again"
+            else
+              # The review decides. The summary comment has a marker line like
+              # "<!-- check-pr-verdict: ready; commit: <full sha> -->" (see the check-pr skill).
+              summary=$(gh api "repos/$REPO/issues/$PR/comments" --paginate \
+                --jq '.[] | select(.body | startswith("<!-- check-pr -->")) | .body')
+              marker=$(printf '%s\n' "$summary" \
+                | sed -n 's/^<!-- check-pr-verdict: \([a-z-]*\); commit: \([0-9a-f]\{40\}\) -->$/\1 \2/p' | tail -1)
+              if [ -n "$marker" ]; then
+                verdict=${marker% *}
+                reviewed=${marker#* }
+                expected=$SHA
+              else
+                # A PR branch that still has the older skill writes no marker. Read the
+                # heading ("## PR check: Ready") and the short commit instead.
+                heading=$(printf '%s\n' "$summary" | sed -n 's/^## .*PR check: \([A-Za-z ]*\).*/\1/p' | tail -1)
+                case "$heading" in
+                  Ready*) verdict=ready ;;
+                  "Needs changes"*) verdict=needs-changes ;;
+                  Blocked*) verdict=blocked ;;
+                  *) verdict="" ;;
+                esac
+                reviewed=$(printf '%s\n' "$summary" | sed -n 's/^\*\*Commit:\*\* `\([0-9a-f]*\)`.*/\1/p' | tail -1)
+                expected=${SHA:0:7}
+              fi
+              if [ -z "$verdict" ] || [ "$reviewed" != "$expected" ]; then
+                state=failure
+                description="Claude did not post a verdict for this commit; comment @claude-code-review to run it again"
+              elif [ "$verdict" = "ready" ]; then
+                state=success
+                description="Claude: ready to merge"
+              elif [ "$verdict" = "blocked" ]; then
+                state=failure
+                description="Claude: blocked, see the review comments"
+              else
+                state=failure
+                description="Claude: needs changes, see the review comments"
+              fi
             fi
           fi
           gh api "repos/$REPO/statuses/$SHA" \

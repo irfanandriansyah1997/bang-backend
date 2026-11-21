@@ -20,7 +20,7 @@ Things to look for in the diff. Strict lint (`.golangci.yml`) already catches ma
 | I/O function without `ctx context.Context` as the first parameter | Can't be cancelled or time out; request IDs don't reach logs | Add `ctx` first and pass it down | major |
 | `context.Background()` / `context.TODO()` inside handlers or usecases | Drops the request's deadline and `x_request_id` | Use the `ctx` you were given | major |
 | `context.WithTimeout` / `WithCancel` without `defer cancel()` | Leaks a timer and goroutine | `defer cancel()` right after creating it | major |
-| Logging with a context-free call where a `ctx` exists | `x_request_id` / SDC missing from that line | `log.Info(ctx, ...)`: our logger always takes `ctx` | minor |
+| Logging with a context-free call where a `ctx` exists | `x_request_id` / SDC missing from that line | `log.Info(ctx, ...)`: our logger always takes `ctx` | minor (not reported) |
 
 ## Resources
 
@@ -39,7 +39,7 @@ Things to look for in the diff. Strict lint (`.golangci.yml`) already catches ma
 | Hard-coded secret or real credential in code or `.env.example` | Public repo, so it's leaked | Env var + placeholder in `.env.example` | blocker |
 | Comparing passwords or tokens with `==` | Timing attacks | `bcrypt.CompareHashAndPassword` / `subtle.ConstantTimeCompare` | major |
 | Uploaded file type trusted from the filename | Anything can be uploaded | Check size and `http.DetectContentType` | major |
-| SDC value built from a number without converting | Won't compile (SDC is string-only), or a mapping conflict if someone works around it | `strconv.Itoa(id)` | minor |
+| SDC value built from a number without converting | Won't compile (SDC is string-only), or a mapping conflict if someone works around it | `strconv.Itoa(id)` | minor (not reported) |
 
 ## Concurrency
 
@@ -54,8 +54,8 @@ Things to look for in the diff. Strict lint (`.golangci.yml`) already catches ma
 | Look for | Why it matters | Fix | Severity |
 |---|---|---|---|
 | Interface defined next to its implementation (in `repository/`) | Couples usecase to the database package | Define it in `usecase`, where it's used | major |
-| Big interfaces (5+ methods) | Hard to fake in tests | Split into small ones | minor |
-| Returning an interface from a constructor | Hides the concrete type for no reason | Return the concrete struct (`*Repo`) | minor |
+| Big interfaces (5+ methods) | Hard to fake in tests | Split into small ones | nit (not reported) |
+| Returning an interface from a constructor | Hides the concrete type for no reason | Return the concrete struct (`*Repo`) | nit (not reported) |
 | Pointer to a pointer, or pointer to an interface | Almost always a mistake | Use the value or the interface directly | major |
 | `time.Now()` inside domain | Tests depend on the wall clock | Take `now time.Time` as a parameter | major |
-| Exported identifiers without a doc comment | `revive` will flag it; readers don't know the contract | One-line comment starting with the name | minor |
+| Exported identifiers without a doc comment | `revive` will flag it; readers don't know the contract | One-line comment starting with the name | nit (not reported) |

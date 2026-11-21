@@ -239,8 +239,8 @@ Langkah 4 baru bisa dites setelah kamu menyelesaikan bagian **Persiapan** (token
   - `--max-turns` dibatasi (mulai dari 20–30, disesuaikan setelah uji coba)
   - satu review per comment, dan comment baru membatalkan review yang masih berjalan
 - **Model untuk review di CI** (diatur lewat `--model` di `claude_args`):
-  - **Default: Claude Haiku 5.5** (`claude-haiku-5-5`), model paling murah. Cukup untuk menjalankan checklist dan untuk belajar cara kerja agentic review.
-  - **Hanya Haiku untuk sekarang.** Opsi `deep` → Sonnet dihapus (2026-11-21). Kalau nanti review Haiku terasa terlalu dangkal, ganti `MODEL` di `claude-review.yml`.
+  - **Default: Claude Sonnet 5.5** (`claude-sonnet-5-5`) sejak 2026-11-22. Status `Claude Review` sekarang mengikuti verdict review dan bisa memblokir merge, jadi ketepatan penilaian lebih penting daripada menghemat kuota.
+  - Sebelumnya (2026-11-21) memakai Claude Haiku 5.5 (`claude-haiku-5-5`), model paling murah. Kalau kuota Pro terasa cepat habis, kembalikan `MODEL` di `claude-review.yml`.
   - Opus tidak dipakai di CI, karena paling berat untuk kuota dan tidak diperlukan untuk tujuan belajar.
 
   | Model | Harga API per 1 juta token (input / output) | Kira-kira |
@@ -283,3 +283,4 @@ Review comment di PR ditulis dalam bahasa Inggris, sama seperti issue dan PR lai
 - Catatan untuk #2: dengan lint baru, branch `feat/2-infrastructure` punya 26 temuan (20 revive: komentar doc pada fungsi exported; 4 wrapcheck; 2 gosec: permission file/folder). Ada juga bug di `logger.go`: `os.Mkdir` seharusnya `os.MkdirAll`.
 - 2026-11-21: review comments switched to **one inline comment per finding** on its line, with GitHub `suggestion` blocks (one-click *Commit suggestion*). The summary is shorter and only lists the findings. Workflow limits raised to 60 turns / 20 minutes.
 - 2026-11-21: review sekarang **hanya memakai Claude Haiku 5.5**. Opsi `deep` → Sonnet dihapus dari workflow, skill, README, dan issue #24/#26.
+- 2026-11-22: model review diganti dari Haiku 5.5 ke **Sonnet 5.5** (`MODEL` di `claude-review.yml`), karena status `Claude Review` sekarang mengikuti verdict dan komentar dibatasi ke blocker dan major.
