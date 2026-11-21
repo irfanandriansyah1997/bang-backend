@@ -1,11 +1,24 @@
-.PHONY: check hooks ai-link
+.PHONY: check lint fmt test hooks ai-link
 
-# Run the same checks as the pre-commit hook, on demand.
-check:
-	@files=$$(gofmt -l .); if [ -n "$$files" ]; then echo "✗ Not formatted. Run: gofmt -w ."; echo "$$files"; exit 1; fi
-	go vet ./...
+GOLANGCI_LINT ?= golangci-lint
+
+# Run everything CI runs: lint, build, test.
+check: lint test
+
+# Strict lint (config: .golangci.yml). Includes gofmt/goimports and go vet.
+lint:
+	@command -v $(GOLANGCI_LINT) >/dev/null || { echo "golangci-lint not found. Install it with: brew install golangci-lint"; exit 1; }
+	$(GOLANGCI_LINT) run ./...
+
+# Fix formatting and import order in place.
+fmt:
+	@command -v $(GOLANGCI_LINT) >/dev/null || { echo "golangci-lint not found. Install it with: brew install golangci-lint"; exit 1; }
+	$(GOLANGCI_LINT) fmt ./...
+
+# Build everything, then run tests with the race detector and coverage.
+test:
 	go build -o /dev/null ./...
-	go test ./...
+	go test -race -count=1 -cover ./...
 
 # Install git hooks from lefthook.yml (once per clone). Requires: brew install lefthook
 hooks:
