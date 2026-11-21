@@ -68,4 +68,4 @@ For each ❌, give:
 {name: "from completed", status: StatusCompleted, wantErr: ErrInvalidTransition},
 ```
 
-Missing happy-path or rule-violation cases are **major**. A function with logic and **no test at all** is a **blocker**. Other missing cases are **major** if they guard a business rule or money/data integrity, otherwise **minor**, and only when the missing case could hide a real bug. A missing edge case that guards nothing risky goes in the test-cases table only, with no comment.
+Missing happy-path or rule-violation cases are **major**. A function with logic and **no test at all** is a **blocker**. Other missing cases are **major** if they guard a business rule or money/data integrity, otherwise it is only listed in the test-cases table, with no comment (minor findings are not reported for now).

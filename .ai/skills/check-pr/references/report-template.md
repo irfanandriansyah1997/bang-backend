@@ -2,7 +2,7 @@
 
 Two kinds of comments: **one inline comment per finding**, on its line in the PR diff, and **one short summary comment** on the PR. Each finding is explained next to its code so a Go beginner sees the context. The summary doesn't repeat what the inline comments say.
 
-Only blocker, major, and minor findings are reported, and only when they can cause an error, a regression, or a breaking change. Style, naming, doc comments, and optional tests (nits) are never reported.
+Only blocker and major findings are reported for now (minor and nit are ignored to keep the review short), and only when they can cause an error, a regression, or a breaking change. Style, naming, doc comments, and optional tests (nits) are never reported.
 
 ## 1. Inline comment (one per finding)
 
@@ -58,9 +58,7 @@ The first occurrence gets the full comment. Later ones stay short, but still inc
 |---|---|
 | `**⛔ blocker · …**` | Must fix before merge |
 | `**⚠️ major · …**` | Should fix before merge |
-| `**💡 minor · …**` | Small risk of an error or regression; worth fixing, doesn't block |
-
-There is no label for nits: they are not reported.
+There are no labels for minor findings or nits: they are not reported.
 
 ## 2. Summary comment (one per PR)
 
@@ -79,9 +77,8 @@ The first line must be the marker, so later runs update this comment instead of 
 |---|---|
 | ⛔ blocker | <n> |
 | ⚠️ major | <n> |
-| 💡 minor | <n> |
 
-**Inline comments:** every finding is commented on its line; most have a suggestion you can apply with *Commit suggestion*. (At most 10 inline comments; extra minors are listed here only.)
+**Inline comments:** every finding is commented on its line; most have a suggestion you can apply with *Commit suggestion*. (At most 10 inline comments; any extra findings are listed here only.)
 - ⛔ `internal/x.go:42`: <short title>
 - ⚠️ `internal/y.go:10`: <short title>
 - …
@@ -110,8 +107,8 @@ List the primary cases of new or changed logic. Group the tested ones in one row
 ## Writing rules
 
 - One finding = one inline comment. Never merge several findings into one comment.
-- Every blocker and major has **What / Why it matters / Fix**. Minor can be one line plus a suggestion.
+- Every blocker and major has **What / Why it matters / Fix**. Keep each one short and give a suggestion when a direct fix exists.
 - Plain language for a beginner; explain each Go term the first time it appears.
 - Suggestions must be correct: right indentation, compiles, passes lint. If you're not sure, use a plain ` ```go ` example instead.
-- No invented findings, and no nits. If you are not sure something can cause an error or a regression, leave it out. Write "None" in sections with nothing to report.
+- No invented findings, no minors, and no nits. If you are not sure something can cause an error or a regression, leave it out. Write "None" in sections with nothing to report.
 - Never paste secrets; point to `file:line`.
