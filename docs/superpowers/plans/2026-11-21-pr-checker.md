@@ -184,9 +184,8 @@ jobs:
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: "/check-pr ${{ github.event.issue.number }} --ci"
-          # Haiku by default; Sonnet when the comment contains "deep"
           claude_args: |
-            --model ${{ contains(github.event.comment.body, 'deep') && 'claude-sonnet-5-5' || 'claude-haiku-5-5' }}
+            --model claude-haiku-5-5
             --max-turns 30
             --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr comment:*),Read,Grep,Glob"
 ```
@@ -241,7 +240,7 @@ Langkah 4 baru bisa dites setelah kamu menyelesaikan bagian **Persiapan** (token
   - satu review per comment, dan comment baru membatalkan review yang masih berjalan
 - **Model untuk review di CI** (diatur lewat `--model` di `claude_args`):
   - **Default: Claude Haiku 5.5** (`claude-haiku-5-5`), model paling murah. Cukup untuk menjalankan checklist dan untuk belajar cara kerja agentic review.
-  - **Opsional: Claude Sonnet 5.5** (`claude-sonnet-5-5`), dipakai hanya kalau comment-nya berisi kata `deep`, misalnya `@claude-code-review deep`. Ini untuk PR penting atau saat review Haiku terasa dangkal.
+  - **Hanya Haiku untuk sekarang.** Opsi `deep` → Sonnet dihapus (2026-11-21). Kalau nanti review Haiku terasa terlalu dangkal, ganti `MODEL` di `claude-review.yml`.
   - Opus tidak dipakai di CI, karena paling berat untuk kuota dan tidak diperlukan untuk tujuan belajar.
 
   | Model | Harga API per 1 juta token (input / output) | Kira-kira |
@@ -283,3 +282,4 @@ Review comment di PR ditulis dalam bahasa Inggris, sama seperti issue dan PR lai
   - #25: `create-pr` dan `review-task` sekarang merujuk ke `check-pr`, dan README diperbarui
 - Catatan untuk #2: dengan lint baru, branch `feat/2-infrastructure` punya 26 temuan (20 revive: komentar doc pada fungsi exported; 4 wrapcheck; 2 gosec: permission file/folder). Ada juga bug di `logger.go`: `os.Mkdir` seharusnya `os.MkdirAll`.
 - 2026-11-21: review comments switched to **one inline comment per finding** on its line, with GitHub `suggestion` blocks (one-click *Commit suggestion*). The summary is shorter and only lists the findings. Workflow limits raised to 60 turns / 20 minutes.
+- 2026-11-21: review sekarang **hanya memakai Claude Haiku 5.5**. Opsi `deep` → Sonnet dihapus dari workflow, skill, README, dan issue #24/#26.
