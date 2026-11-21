@@ -4,18 +4,10 @@
 pre-commit:
   parallel: true
   commands:
-    gofmt:
+    lint:
       glob: "*.go"
-      run: |
-        files=$(gofmt -l {staged_files})
-        if [ -n "$files" ]; then
-          echo "✗ Not formatted. Run: gofmt -w ."
-          echo "$files"
-          exit 1
-        fi
-    vet:
-      glob: "*.go"
-      run: go vet ./...
+      # strict lint from .golangci.yml (formatting, vet, and the rest)
+      run: golangci-lint run ./...
     build:
       glob: "*.go"
       run: go build -o /dev/null ./...
