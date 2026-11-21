@@ -23,7 +23,7 @@ With no PR given in local mode, use the open PR for the current branch (`gh pr v
 | Gate (lint + test) | You run it, in a temp worktree | Already done: the workflow only starts you when Lint and Test are green on the PR head |
 | Code | Temp worktree of the PR head | The runner's checkout (already the PR head) |
 | Output | Report in chat, in the user's language | **Post to the PR automatically**, in English |
-| Posting | Only if the user asks | Always: one summary comment + inline comments |
+| Posting | Only if the user asks | Always: one inline comment per finding (with code suggestions) + one summary comment |
 
 ## Workflow
 
@@ -107,29 +107,53 @@ Don't invent findings to fill the report. A clean PR is **Ready** with "no findi
 
 ### 5. Report
 
-Use [`references/report-template.md`](references/report-template.md).
+Findings go **on the lines they are about**, one comment per finding. The developer is new to Go and reads each problem next to its code. One giant comment loses that context. Templates: [`references/report-template.md`](references/report-template.md).
+
+**Two kinds of comments:**
+
+| Comment | Where | Contains |
+|---|---|---|
+| **Inline comment**, one per finding | On the exact line (or line range) in the PR diff | Severity, what, why it matters, and a **code suggestion** |
+| **Summary comment**, one per PR | The PR conversation | Verdict, counts, test-cases table, conventions, and findings that can't go on a diff line |
+
+**Inline comment rules:**
+- **Every finding gets its own inline comment**, at every severity (blocker, major, minor, nit), as long as its line is part of the PR diff. Don't bundle several findings into one comment. If the same problem appears on several lines, comment on each line. From the 2nd occurrence on, the comment can be short and point to the first.
+- **Add a `suggestion` block whenever the fix is a direct change to the commented lines**, so the developer can click *Commit suggestion* on GitHub:
+
+  ````markdown
+  ```suggestion
+  	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
+  ```
+  ````
+
+  - The block **replaces exactly the commented line(s)**. For a multi-line fix, comment on the whole range (start line → end line) and put the full replacement in the block.
+  - Keep the original indentation (Go uses tabs) and write code that compiles and passes `make lint`.
+  - When the fix touches other lines, adds a new file, or is a test to add, use a normal ` ```go ` block instead and say where it goes.
+- Only comment on lines that are in the diff (added, or context lines in a changed hunk). Findings about unchanged code, missing files, or the PR as a whole go in the summary.
+- Order of posting: blocker → major → minor → nit. Up to **30 inline comments**; if there are more, put the rest in the summary as a list with `file:line`.
+
+**Summary comment rules:** short, starts with the marker `<!-- check-pr -->`, and **does not repeat** what the inline comments already say. It links to them by listing `file:line` + title.
 
 **Local mode:**
-- Show the report in chat in the user's language; keep code, paths, and identifiers as-is.
-- Offer to post it to the PR, in English.
+- Show the report in chat in the user's language. Use the same structure, with each finding under its `file:line`, plus the suggestion.
+- Offer to post it to the PR, as inline comments + summary, in English.
 - Remove the temp worktree and branch.
 
 **CI mode:**
-1. Post **inline comments** on specific lines for blocker and major findings, using the `mcp__github_inline_comment__create_inline_comment` tool. Keep it to 10 at most; put the rest in the summary.
-2. Post or update **one summary comment**. Its first line is the marker `<!-- check-pr -->`.
-   - If a comment with that marker already exists, update it instead of adding another:
+1. Post the **inline comments** with the `mcp__github_inline_comment__create_inline_comment` tool, one call per finding.
+2. Post or update the **summary comment**. If a comment with the marker already exists, update it instead of adding another:
 
-     ```bash
-     ID=$(gh api repos/$R/issues/<PR>/comments --paginate \
-       --jq '[.[] | select(.body | startswith("<!-- check-pr -->"))][0].id // empty')
-     if [ -n "$ID" ]; then
-       gh api -X PATCH repos/$R/issues/comments/$ID -F body=@<report.md>
-     else
-       gh pr comment <PR> -R $R --body-file <report.md>
-     fi
-     ```
+   ```bash
+   ID=$(gh api repos/$R/issues/<PR>/comments --paginate \
+     --jq '[.[] | select(.body | startswith("<!-- check-pr -->"))][0].id // empty')
+   if [ -n "$ID" ]; then
+     gh api -X PATCH repos/$R/issues/comments/$ID -F body=@<report.md>
+   else
+     gh pr comment <PR> -R $R --body-file <report.md>
+   fi
+   ```
 
-3. Write the report in **English**, with the beginner-friendly explanations.
+3. Write everything in **English**, with the beginner-friendly explanations.
 
 ## Never
 
