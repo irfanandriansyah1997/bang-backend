@@ -56,12 +56,13 @@ func run(ctx context.Context, cfg config.Config, stdout io.Writer) error {
 
 	// The terminal is indented only in local development.
 	// The log file always gets the raw JSON line, one per entry.
+	// The file comes first: MultiWriter stops at the first error, and the file is the full record.
 	terminal := stdout
 	if cfg.AppEnv == "local" {
 		terminal = logger.NewPrettyWriter(stdout)
 	}
 
-	log := logger.New(io.MultiWriter(terminal, logFile), logger.Options{
+	log := logger.New(io.MultiWriter(logFile, terminal), logger.Options{
 		Level:   level,
 		Service: serviceName,
 		Env:     cfg.AppEnv,
