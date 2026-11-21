@@ -185,7 +185,8 @@ func TestParseLevel(t *testing.T) {
 }
 
 func TestOpenFile_CreatesFolder(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "nested", "app.log")
+	// Two missing folders: os.Mkdir would fail here, os.MkdirAll works.
+	path := filepath.Join(t.TempDir(), "nested", "deeper", "app.log")
 
 	f, err := OpenFile(path)
 	if err != nil {

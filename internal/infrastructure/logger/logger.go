@@ -149,9 +149,14 @@ func ParseLevel(s string) (slog.Level, error) {
 }
 
 func OpenFile(path string) (*os.File, error) {
-	if err := os.Mkdir(filepath.Dir(path), 0o755); err != nil {
-		return nil, err
+	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
+		return nil, fmt.Errorf("logger: create log folder: %w", err)
 	}
 
-	return os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
+	f, err := os.OpenFile(filepath.Clean(path), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
+	if err != nil {
+		return nil, fmt.Errorf("logger: open log file: %w", err)
+	}
+
+	return f, nil
 }
