@@ -1,8 +1,7 @@
 name: Claude Review
 
 # Comment "@claude-code-review" on a pull request to get a review from Claude
-# (Claude Haiku 5.5). Add "deep" ("@claude-code-review deep") to use
-# Claude Sonnet 5.5 instead. Runs on the Claude Pro subscription via the
+# Haiku 5.5. Runs on the Claude Pro subscription via the
 # CLAUDE_CODE_OAUTH_TOKEN secret (created with `claude setup-token`).
 on:
   issue_comment:
@@ -34,7 +33,7 @@ jobs:
       PR: ${{ github.event.issue.number }}
       COMMENT_ID: ${{ github.event.comment.id }}
       COMMENTER: ${{ github.event.comment.user.login }}
-      MODEL: ${{ contains(github.event.comment.body, 'deep') && 'claude-sonnet-5-5' || 'claude-haiku-5-5' }}
+      MODEL: claude-haiku-5-5 # cheapest model; change here to try another one
     steps:
       - name: Only collaborators with write access
         run: |
