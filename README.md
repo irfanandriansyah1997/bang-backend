@@ -222,4 +222,6 @@ Every folder has its own `README.md` explaining what belongs there. Start with [
   - Issue footers: `Refs: #12` (partial), `Closes: #12` (done)
 - Run `make check` before opening a PR. **CI** ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs the same **Lint** (golangci-lint) and **Test** (go build, go test -race) jobs on every PR and on pushes to `main`.
 - Open PRs with the [PR template](.github/pull_request_template.md), which GitHub fills in automatically. Keep it short: a bullet-list Summary with the change type first, and `None` for sections that don't apply. AI agents can draft it with the `create-pr` skill.
+- **Code review:** once Lint and Test are green, comment `@claude-code-review` on the PR (or `@claude-code-review deep` for a stronger model). Claude posts a verdict (Ready / Needs changes / Blocked), findings, and a table of tested vs missing test cases. The review runs on the maintainer's Claude subscription ([`.github/workflows/claude-review.yml`](.github/workflows/claude-review.yml)). Locally, run `/check-pr <PR>`.
+- **Task review:** `/review-task <PR> <issue>` checks that the PR finishes its issue.
 - AI agents (Claude Code, Cursor) read [`AGENTS.md`](AGENTS.md). Rules and skills live in [`.ai/`](.ai/README.md).
