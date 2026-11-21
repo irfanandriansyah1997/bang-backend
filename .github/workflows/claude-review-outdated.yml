@@ -1,0 +1,40 @@
+name: Claude Review outdated
+
+# When a commit is pushed to a PR, the earlier Claude review no longer covers the
+# PR head. Mark the "Claude Review" status of the new head commit as pending, so
+# the PR says "no review for this commit yet" until someone comments
+# @claude-code-review again (see claude-review.yml).
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions: {}
+
+jobs:
+  outdated:
+    name: Mark Claude Review as needed
+    # Pull requests from forks get a read-only token and cannot write statuses
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      statuses: write # write the "Claude Review" status on the PR head
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+      SHA: ${{ github.event.pull_request.head.sha }}
+      STATUS_CONTEXT: Claude Review # must match claude-review.yml and the ruleset
+    steps:
+      - name: Set the status to pending
+        run: |
+          # Never overwrite a status that already exists for this commit (a review may already be running)
+          existing=$(gh api "repos/$REPO/commits/$SHA/statuses" \
+            --jq '[.[] | select(.context == env.STATUS_CONTEXT)] | length')
+          if [ "$existing" != "0" ]; then
+            echo "$STATUS_CONTEXT already has a status on ${SHA:0:7}; leaving it as it is"
+            exit 0
+          fi
+          gh api "repos/$REPO/statuses/$SHA" \
+            -f state=pending -f context="$STATUS_CONTEXT" \
+            -f description="No review for this commit yet: comment @claude-code-review" >/dev/null
+          echo "$STATUS_CONTEXT on ${SHA:0:7}: pending (not reviewed yet)"
