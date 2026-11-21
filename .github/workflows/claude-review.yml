@@ -1,7 +1,7 @@
 name: Claude Review
 
 # Comment "@claude-code-review" on a pull request to get a review from Claude
-# Haiku 5.5. Runs on the Claude Pro subscription via the
+# Sonnet 5.5. Runs on the Claude Pro subscription via the
 # CLAUDE_CODE_OAUTH_TOKEN secret (created with `claude setup-token`).
 #
 # The review only writes comments. It never edits files, commits, pushes, or
@@ -52,7 +52,7 @@ jobs:
       PR: ${{ github.event.issue.number }}
       COMMENT_ID: ${{ github.event.comment.id }}
       COMMENTER: ${{ github.event.comment.user.login }}
-      MODEL: claude-haiku-5-5 # cheapest model; change here to try another one
+      MODEL: claude-sonnet-5-5 # the review decides the merge status, so use a stronger model; claude-haiku-5-5 is the cheap one
       STATUS_CONTEXT: Claude Review # name of the commit status (the ruleset uses this name)
       RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
     steps:
