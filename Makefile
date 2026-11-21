@@ -1,4 +1,4 @@
-.PHONY: check lint fmt test tools hooks ai-link
+.PHONY: check lint fmt test tools run dev migrate-up migrate-down sqlc seed hooks ai-link
 
 # One golangci-lint version for everyone: make, the git hook, VS Code, and CI.
 # To upgrade, change it here AND in .github/workflows/ci.yml (golangci-lint-action `version:`).
@@ -8,6 +8,15 @@ BIN := $(CURDIR)/bin
 GOLANGCI_LINT_BIN := $(BIN)/golangci-lint-$(GOLANGCI_LINT_VERSION)
 # Stable path for VS Code (.vscode/settings.json) and lefthook; a symlink to the binary above.
 GOLANGCI_LINT := $(BIN)/golangci-lint
+
+# Pinned version of air (hot reload), installed into ./bin by `make dev`.
+AIR_VERSION := v1.67.4
+AIR_BIN := $(BIN)/air-$(AIR_VERSION)
+AIR := $(BIN)/air
+
+# Load .env (if it exists) into the environment of the next command.
+# Values with spaces or & must be quoted in .env.
+LOAD_ENV := set -a; [ ! -f .env ] || . ./.env; set +a;
 
 # Run everything CI runs: lint, build, test.
 check: lint test
@@ -34,6 +43,32 @@ $(GOLANGCI_LINT_BIN):
 test:
 	go build -o /dev/null ./...
 	go test -race -count=1 -cover ./...
+
+# Run the API with the settings from .env. Stop it with Ctrl+C.
+run:
+	@$(LOAD_ENV) go run ./cmd/api
+
+# Run the API and restart it on every .go change (config: .air.toml).
+dev: $(AIR_BIN)
+	@ln -sfn $(notdir $(AIR_BIN)) $(AIR)
+	@$(LOAD_ENV) $(AIR)
+
+$(AIR_BIN):
+	@echo "installing air $(AIR_VERSION) into ./bin"
+	@mkdir -p $(BIN)
+	@rm -f $(AIR)
+	GOBIN=$(BIN) go install github.com/air-verse/air@$(AIR_VERSION)
+	@mv $(BIN)/air $@
+
+# Placeholders: they fail on purpose, so nobody thinks they ran.
+migrate-up migrate-down:
+	@echo "make $@ is not ready yet: migrations come with issue #5"; exit 1
+
+sqlc:
+	@echo "make sqlc is not ready yet: it comes with issue #5"; exit 1
+
+seed:
+	@echo "make seed is not ready yet: it comes with issue #7"; exit 1
 
 # Install git hooks from lefthook.yml (once per clone). Requires: brew install lefthook
 hooks:
