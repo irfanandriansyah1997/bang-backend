@@ -8,8 +8,10 @@ on:
     types: [created]
 
 # One review per PR at a time: a new comment cancels a running review.
+# Comments from bots get their own group, so the review's own summary comment
+# (it mentions the trigger phrase in its footer) can never cancel a running review.
 concurrency:
-  group: claude-review-${{ github.event.issue.number }}
+  group: claude-review-${{ github.event.issue.number }}-${{ github.event.comment.user.type }}
   cancel-in-progress: true
 
 permissions: {}
@@ -17,8 +19,12 @@ permissions: {}
 jobs:
   review:
     name: Claude Review
-    # PR comments only (not issues), and only when the trigger phrase is present
-    if: github.event.issue.pull_request && contains(github.event.comment.body, '@claude-code-review')
+    # PR comments only (not issues), written by a person (not a bot, or the
+    # review's own summary comment would start another review), with the trigger phrase
+    if: >-
+      github.event.issue.pull_request &&
+      github.event.comment.user.type != 'Bot' &&
+      contains(github.event.comment.body, '@claude-code-review')
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
