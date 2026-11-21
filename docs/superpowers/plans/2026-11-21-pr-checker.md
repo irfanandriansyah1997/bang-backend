@@ -1,5 +1,5 @@
 # Plan: PR checker otomatis (lint + unit test → review kelayakan merge oleh Claude)
-> Status: **draft, keputusan 1–5 sudah diambil** · Last updated: 2026-11-21
+> Status: **#21–#25 dikerjakan di PR #27; #26 menunggu token dan PR #2** · Last updated: 2026-11-21
 
 ## Tujuan
 
@@ -272,3 +272,13 @@ Review comment di PR ditulis dalam bahasa Inggris, sama seperti issue dan PR lai
 
 - Kamu sedang berada di branch `feat/init`, padahal branch itu sudah di-merge. Pindahkan pekerjaan #2 ke branch baru dengan `git switch -c feat/2-infrastructure`. File yang belum di-commit ikut terbawa.
 - Anthropic juga punya produk **[Code Review](https://code.claude.com/docs/en/code-review.md)**: review otomatis tanpa perlu menulis workflow. Tapi produk itu tidak menjalankan checklist dan aturan khusus repo ini seperti `check-pr`, jadi untuk tujuan belajar, workflow sendiri lebih cocok.
+
+## Changelog
+- 2026-11-21: plan dibuat; keputusan 1–5 diambil; issue #21–#26 dibuat
+- 2026-11-21: #21–#25 dikerjakan di branch `chore/pr-checker-plan` (PR #27):
+  - #21: strict golangci-lint v2.15.0 (`.golangci.yml`, `make lint`/`fmt`/`test`/`check`, CI job Lint, lefthook, README). Lint menemukan error yang tidak dibungkus di `cmd/api/main.go`, sudah diperbaiki.
+  - #22: rules `testing.md`, `http.md`, `domain-usecase.md`
+  - #23: skill `check-pr` + `references/`. Gate diuji pada branch `feat/2-infrastructure`: lint gagal (26 temuan), jadi review berhenti di gate sesuai rancangan.
+  - #24: workflow `claude-review.yml` lolos actionlint, dan logika gate disimulasikan. **Belum dites end-to-end**: perlu secret `CLAUDE_CODE_OAUTH_TOKEN` dan workflow harus sudah ada di `main` (GitHub menjalankan workflow `issue_comment` dari branch default).
+  - #25: `create-pr` dan `review-task` sekarang merujuk ke `check-pr`, dan README diperbarui
+- Catatan untuk #2: dengan lint baru, branch `feat/2-infrastructure` punya 26 temuan (20 revive: komentar doc pada fungsi exported; 4 wrapcheck; 2 gosec: permission file/folder). Ada juga bug di `logger.go`: `os.Mkdir` seharusnya `os.MkdirAll`.
