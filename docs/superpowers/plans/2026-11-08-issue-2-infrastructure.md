@@ -18,13 +18,33 @@
 Semua kode di file ini sudah di-compile dan di-test di project percobaan: `go vet` bersih, `gofmt` bersih, dan semua test lolos dengan `-race`.
 
 ## Progress
-- [ ] Step 1: Jalankan Postgres dengan Docker
-- [ ] Step 2: Package `config` (+ `.env.example`)
-- [ ] Step 3: Package `logger` (level, payload, SDC, x_request_id, pretty print)
-- [ ] Step 4: Package `database` (pgxpool + ping)
-- [ ] Step 4b: Postgres service container di CI, supaya test database ikut jalan
-- [ ] Step 5: Sambungkan semuanya di `cmd/api/main.go` + graceful shutdown *(batch berikutnya)*
-- [ ] Step 6: `Makefile` + `.air.toml` *(batch berikutnya)*
+- [x] Step 1: Jalankan Postgres dengan Docker
+- [x] Step 2: Package `config` (+ `.env.example`)
+- [x] Step 3: Package `logger` (level, payload, SDC, x_request_id, pretty print)
+- [x] Step 4: Package `database` (pgxpool + ping)
+- [x] Step 4b: Postgres service container di CI, supaya test database ikut jalan
+- [ ] Step 5: Sambungkan semuanya di `cmd/api/main.go` + graceful shutdown
+- [ ] Step 6: `Makefile` (`run`, `dev`, placeholder) + `.air.toml`
+
+### Yang belum selesai (hasil review PR #28, 2026-11-21)
+
+Step 1–4b sudah di PR #28 dan lolos review. Item DoD di bawah ini yang masih kurang:
+
+| Item DoD / acceptance | Status sekarang | Dikerjakan di |
+|---|---|---|
+| Logger menulis ke stdout **dan** `logs/app.log` | ❌ logger belum dipakai di `main.go` | Step 5 |
+| Pretty print hanya saat `APP_ENV=local` | ❌ `NewPrettyWriter` ada, tapi belum dipasang | Step 5 |
+| `database.Connect` dipanggil dan ping saat startup | ❌ fungsinya ada, belum dipanggil | Step 5 |
+| Graceful shutdown (Ctrl+C → log → tutup pool → exit 0) | ❌ belum ada | Step 5 |
+| `Makefile`: `run`, `dev` | ❌ belum ada | Step 6 |
+| `Makefile`: `migrate-up/down`, `sqlc`, `seed` sebagai placeholder | ❌ belum ada | Step 6 |
+| `.air.toml` untuk hot reload | ❌ belum ada | Step 6 |
+| Body PR berisi `Closes #2` | ❌ masih `Refs #2`; ganti setelah Step 5–6 | Setelah Step 6 |
+| CI Lint dan Test hijau | ⚠️ cek hasil CI di PR #28 | — |
+
+Yang sudah ✅: package `config`, `logger`, `database` beserta test-nya, `docker-compose.yml`, `.env.example`, test database di CI, `make check` lolos, dan format semua commit.
+
+---
 
 ## What you'll build
 
@@ -41,7 +61,8 @@ internal/infrastructure/database/database_test.go    NEW   (Step 4)
 go.mod, go.sum                                       EDIT  (Step 4, otomatis lewat go get)
 .github/workflows/ci.yml                             EDIT  (Step 4b)
 cmd/api/main.go, cmd/api/main_test.go                EDIT  (Step 5)
-Makefile, .air.toml                                  EDIT / NEW (Step 6)
+Makefile                                             EDIT  (Step 6)
+.air.toml                                            NEW   (Step 6)
 ```
 
 ---
@@ -1069,12 +1090,453 @@ Ini titik yang pas untuk commit. Usulan rencana commit (jalankan `/atomic-conven
 - `ci(github): run database tests against postgres service` → `.github/workflows/ci.yml`
 - `docs(infra): add plan for #2` → file plan ini
 
-## Next batch (Step 5–6)
+## Step 5: Sambungkan semuanya di `cmd/api/main.go` + graceful shutdown
 
-- **Step 5: `cmd/api/main.go` + graceful shutdown.** Urutannya: load config → `logger.ParseLevel` → buka file log → buat logger. Output terminal memakai `NewPrettyWriter` saat `APP_ENV=local`, dan file log tetap satu baris per entri, digabung lewat `io.MultiWriter`. Setelah itu connect DB, lalu tunggu Ctrl+C dengan `signal.NotifyContext`. Saat Ctrl+C ditekan, log "shutting down", tutup DB, dan exit 0. `main_test.go` juga diperbarui.
-- **Step 6: `Makefile` + `.air.toml`.** Target `run` (otomatis membaca `.env`), `dev` (hot reload dengan air), `test`, dan `lint`. Target `migrate-up/down`, `sqlc`, dan `seed` dibuat sebagai placeholder yang menunjuk ke #5 dan #7.
+**Why:** Sampai Step 4, config, logger, dan database baru berupa "komponen lepas" yang hanya dipakai oleh test. Di step ini semuanya dirangkai di satu tempat, yaitu `cmd/api/main.go` (satu-satunya tempat wiring, sesuai aturan arsitektur). Aplikasi juga diajari mati dengan rapi: saat kamu menekan Ctrl+C, aplikasi menulis log "shutting down", menutup koneksi database, lalu keluar dengan kode 0.
 
-Kalau Step 1–4 sudah selesai, bilang **"lanjut step 5"**. Bagian ini akan diisi di file yang sama.
+**Alurnya:**
+
+```
+main()
+ └─ realMain()
+     ├─ config.Load()                      baca env (gagal kalau JWT_SECRET kosong)
+     ├─ signal.NotifyContext(...)          ctx yang dibatalkan saat Ctrl+C / SIGTERM
+     └─ run(ctx, cfg, stdout)
+         ├─ logger.ParseLevel              LOG_LEVEL → level (error jelas kalau salah)
+         ├─ logger.OpenFile                buka logs/app.log
+         ├─ NewPrettyWriter (hanya APP_ENV=local) → terminal; file tetap JSON satu baris
+         ├─ logger.New(io.MultiWriter(terminal, file))
+         ├─ database.Connect               buka pool + ping (gagal → run berhenti)
+         ├─ log "database connected", "app started"
+         ├─ <-ctx.Done()                   tunggu Ctrl+C  (di #3 server HTTP dijalankan di sini)
+         └─ log "shutting down"            lalu pool.Close() dan file.Close() lewat defer
+```
+
+### 5a. `main.go` (EDIT: ganti seluruh isi file)
+
+**File:** `cmd/api/main.go`
+
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+	"io"
+	"os"
+	"os/signal"
+	"syscall"
+
+	"github.com/irfanandriansyah1997/bang-backend/internal/infrastructure/config"
+	"github.com/irfanandriansyah1997/bang-backend/internal/infrastructure/database"
+	"github.com/irfanandriansyah1997/bang-backend/internal/infrastructure/logger"
+)
+
+const serviceName = "bang-backend"
+
+func main() {
+	os.Exit(realMain())
+}
+
+// realMain returns the exit code instead of calling os.Exit itself,
+// so the deferred stop() below always runs.
+func realMain() int {
+	cfg, err := config.Load()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 1
+	}
+
+	// ctx is canceled when the user presses Ctrl+C (SIGINT) or the
+	// platform sends SIGTERM (e.g. Docker stop).
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	if err := run(ctx, cfg, os.Stdout); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 1
+	}
+
+	return 0
+}
+
+// run wires the app together and blocks until ctx is canceled.
+func run(ctx context.Context, cfg config.Config, stdout io.Writer) error {
+	level, err := logger.ParseLevel(cfg.LogLevel)
+	if err != nil {
+		return fmt.Errorf("parse log level: %w", err)
+	}
+
+	logFile, err := logger.OpenFile(cfg.LogFile)
+	if err != nil {
+		return fmt.Errorf("open log file: %w", err)
+	}
+	defer logFile.Close()
+
+	// The terminal is indented only in local development.
+	// The log file always gets the raw JSON line, one per entry.
+	terminal := stdout
+	if cfg.AppEnv == "local" {
+		terminal = logger.NewPrettyWriter(stdout)
+	}
+
+	log := logger.New(io.MultiWriter(terminal, logFile), logger.Options{
+		Level:   level,
+		Service: serviceName,
+		Env:     cfg.AppEnv,
+		Version: cfg.AppVersion,
+	})
+
+	pool, err := database.Connect(ctx, cfg.DatabaseURL)
+	if err != nil {
+		return fmt.Errorf("connect database: %w", err)
+	}
+	defer pool.Close()
+
+	log.Info(ctx, "database connected")
+	// Pick fields one by one: never put the whole cfg in a Payload,
+	// it would also write JWTSecret and the database password.
+	log.Info(ctx, "app started", logger.Payload{"port": cfg.Port, "log_level": cfg.LogLevel})
+
+	// The HTTP server will start here in #3. For now, wait for Ctrl+C.
+	<-ctx.Done()
+
+	log.Info(ctx, "shutting down")
+
+	return nil
+}
+```
+
+**Apa yang terjadi di sini:**
+1. `main()` hanya memanggil `realMain()` dan memakai hasilnya sebagai kode exit. `os.Exit` **tidak menjalankan `defer`**, jadi kalau `os.Exit` dipanggil di fungsi yang punya `defer stop()`, `stop()` tidak akan pernah berjalan (linter `gocritic` memperingatkan hal ini). Memisahkannya ke `realMain()` membuat `defer` selalu jalan.
+2. `config.Load()` dipanggil di `main`, lalu hasilnya dikirim ke `run` sebagai parameter. Alasannya ada dua: `os.Getenv` hanya boleh dipanggil di package `config` (DoD), dan dengan `cfg` sebagai parameter, test bisa memberi config palsu tanpa menyentuh env asli. Polanya sama seperti `run(io.Writer)` di issue #1.
+3. `logFile` dan `pool` memakai `defer`. Urutan `defer` itu **terbalik**: yang didaftarkan terakhir dijalankan pertama. Jadi saat `run` selesai, pool ditutup dulu, baru file log, dan pesan "shutting down" masih sempat tertulis.
+4. `io.MultiWriter(terminal, logFile)` mengirim setiap baris log ke dua tujuan. Pretty writer hanya membungkus **terminal**, sehingga file log selalu berisi satu baris JSON per entri, apa pun nilai `APP_ENV`.
+5. Di `"app started"`, field diambil satu per satu (`port`, `log_level`). Jangan pernah menulis `Payload{"config": cfg}`: handler JSON mengubah seluruh struct menjadi JSON dan mengabaikan `LogValue`, sehingga `JWTSecret` dan password database ikut tertulis di log.
+6. Server HTTP belum ada (itu issue #3), jadi untuk sekarang `run` hanya menunggu `<-ctx.Done()`.
+
+| Konsep Go | Artinya | Di React/TS |
+|---|---|---|
+| `signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)` | `context` yang otomatis dibatalkan saat Ctrl+C atau saat Docker mengirim stop | `AbortController` yang di-abort oleh `process.on("SIGINT")` |
+| `<-ctx.Done()` | Menunggu sampai context dibatalkan (channel yang tertutup) | `await` promise yang resolve saat sinyal abort |
+| `defer pool.Close()` | Dijalankan saat fungsi selesai, urutannya terbalik | `finally { }` atau fungsi cleanup di `useEffect` |
+| `io.MultiWriter(a, b)` | Satu tulisan dikirim ke banyak tujuan | `tee`, atau `console.log` yang juga menulis ke file |
+| `os.Exit(code)` | Mematikan proses seketika, tanpa menjalankan `defer` | `process.exit()` yang mengabaikan `finally` |
+
+**Hapus `startupMessage`.** Fungsi ini dan test-nya (`TestStartupMessage`, `TestStartupMessage_Table`) berasal dari issue #1 dan tidak dipakai lagi, karena pesan startup sekarang ditulis oleh logger. Kode yang tidak dipakai sebaiknya dihapus, bukan dibiarkan.
+
+### 5b. `main_test.go` (EDIT: ganti seluruh isi file)
+
+**File:** `cmd/api/main_test.go`
+
+```go
+package main
+
+import (
+	"bytes"
+	"context"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/irfanandriansyah1997/bang-backend/internal/infrastructure/config"
+)
+
+const testSecret = "test-secret-do-not-log"
+
+func testConfig(t *testing.T) config.Config {
+	t.Helper()
+
+	return config.Config{
+		Port:        "8080",
+		DatabaseURL: "postgres://app:app@127.0.0.1:1/fieldservice?sslmode=disable&connect_timeout=1",
+		JWTSecret:   testSecret,
+		LogFile:     filepath.Join(t.TempDir(), "logs", "app.log"),
+		LogLevel:    "info",
+		AppEnv:      "test",
+		AppVersion:  "test",
+	}
+}
+
+func TestRun_InvalidLogLevel(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.LogLevel = "loud"
+
+	err := run(context.Background(), cfg, &bytes.Buffer{})
+	if err == nil || !strings.Contains(err.Error(), "log level") {
+		t.Fatalf("run() error = %v, want an error about the log level", err)
+	}
+}
+
+func TestRun_DatabaseUnreachable(t *testing.T) {
+	// Port 1 has nothing listening, so Connect must fail and run must stop.
+	err := run(context.Background(), testConfig(t), &bytes.Buffer{})
+	if err == nil || !strings.Contains(err.Error(), "connect database") {
+		t.Fatalf("run() error = %v, want an error about the database", err)
+	}
+}
+
+// Needs a real Postgres: runs when TEST_DATABASE_URL is set (docker compose
+// locally, the service container in CI). In CI it fails instead of skipping.
+func TestRun_ShutsDownOnCancel(t *testing.T) {
+	dbURL := os.Getenv("TEST_DATABASE_URL")
+	if dbURL == "" {
+		if os.Getenv("CI") == "true" {
+			t.Fatal("TEST_DATABASE_URL must be set in CI")
+		}
+		t.Skip("TEST_DATABASE_URL not set")
+	}
+
+	tests := []struct {
+		name       string
+		appEnv     string
+		wantPretty bool
+	}{
+		{name: "local env indents the terminal", appEnv: "local", wantPretty: true},
+		{name: "other env keeps one line per entry", appEnv: "production", wantPretty: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := testConfig(t)
+			cfg.DatabaseURL = dbURL
+			cfg.AppEnv = tt.appEnv
+
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+
+			var out bytes.Buffer
+			done := make(chan error, 1)
+			go func() { done <- run(ctx, cfg, &out) }()
+
+			waitForLog(t, cfg.LogFile, "app started")
+			cancel() // same as pressing Ctrl+C
+
+			select {
+			case err := <-done:
+				if err != nil {
+					t.Fatalf("run() error: %v", err)
+				}
+			case <-time.After(5 * time.Second):
+				t.Fatal("run() did not return after the context was canceled")
+			}
+
+			file, err := os.ReadFile(cfg.LogFile)
+			if err != nil {
+				t.Fatalf("read log file: %v", err)
+			}
+
+			lines := strings.Split(strings.TrimSpace(string(file)), "\n")
+			if len(lines) != 3 { // database connected, app started, shutting down
+				t.Errorf("log file has %d lines, want 3: %q", len(lines), file)
+			}
+
+			if !strings.Contains(string(file), `"message":"shutting down"`) {
+				t.Errorf("log file is missing the shutdown message: %q", file)
+			}
+
+			if strings.Contains(string(file), testSecret) || strings.Contains(out.String(), testSecret) {
+				t.Error("JWT secret was written to the logs")
+			}
+
+			if pretty := strings.Contains(out.String(), "\n  \"message\""); pretty != tt.wantPretty {
+				t.Errorf("terminal output indented = %v, want %v:\n%s", pretty, tt.wantPretty, out.String())
+			}
+		})
+	}
+}
+
+// waitForLog polls the log file until it contains want, or fails after 5 seconds.
+func waitForLog(t *testing.T, path, want string) {
+	t.Helper()
+
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		if data, err := os.ReadFile(path); err == nil && strings.Contains(string(data), want) {
+			return
+		}
+
+		time.Sleep(20 * time.Millisecond)
+	}
+
+	t.Fatalf("log %q did not appear in %s within 5s", want, path)
+}
+```
+
+**Apa yang dites:**
+- `TestRun_InvalidLogLevel` memastikan `LOG_LEVEL=loud` berhenti dengan error yang menyebut log level.
+- `TestRun_DatabaseUnreachable` memakai port 1 (tidak ada yang mendengarkan), sehingga `run` harus berhenti dengan error `connect database`. Dua test ini **tidak butuh database**, jadi selalu jalan.
+- `TestRun_ShutsDownOnCancel` butuh Postgres sungguhan. Test ini menjalankan `run` di goroutine, menunggu log `app started` muncul di file, lalu memanggil `cancel()` (sama seperti Ctrl+C) dan memastikan `run` kembali tanpa error. Ia juga mengecek isi file log: tepat 3 baris, ada "shutting down", dan **JWT secret tidak muncul** di file maupun di terminal. Dua sub-test membuktikan bahwa terminal hanya di-indent saat `APP_ENV=local`.
+- Polanya sama seperti `TestConnect_RealDatabase` di Step 4: dilewati (SKIP) di laptop kalau `TEST_DATABASE_URL` tidak di-set, tapi **gagal** di CI kalau variabel itu hilang. CI sudah menyalakan Postgres di Step 4b, jadi test ini otomatis ikut jalan di sana.
+
+Konsep baru:
+- `t.Helper()` membuat error muncul di baris pemanggil, bukan di dalam fungsi bantu.
+- `select` dengan `time.After` adalah "tunggu hasil, tapi menyerah setelah 5 detik", supaya test tidak menggantung selamanya.
+- Bagian ini menunggu lewat membaca file log (bukan buffer yang ditulis goroutine lain) agar aman dari data race. `go test -race` akan marah kalau dua goroutine menyentuh `bytes.Buffer` yang sama bersamaan.
+
+**Check:**
+```bash
+make check
+```
+Hasilnya `0 issues` dan semua package `ok`. Coverage `cmd/api` naik ke sekitar 61% kalau `TEST_DATABASE_URL` di-set. `main()` dan `realMain()` memang tidak dites karena memegang sinyal proses.
+
+Lalu coba dengan database sungguhan (`docker compose up -d` dulu):
+```bash
+TEST_DATABASE_URL="postgres://app:app@localhost:5432/fieldservice?sslmode=disable" \
+  go test -race -v ./cmd/api
+```
+Hasilnya `TestRun_ShutsDownOnCancel` dengan 2 sub-test `PASS`.
+
+Terakhir, jalankan aplikasinya sendiri dan tekan Ctrl+C:
+```bash
+cp .env.example .env     # lewati kalau .env sudah ada; isi JWT_SECRET dengan: openssl rand -hex 32
+set -a; . ./.env; set +a
+go run ./cmd/api
+```
+Hasilnya tiga log yang di-indent ("database connected", "app started", lalu setelah Ctrl+C "shutting down"). Cek `echo $?` yang harus `0`, dan `cat logs/app.log` yang harus berisi tiga baris JSON, satu baris per entri.
+
+Coba juga matikan database: `docker compose stop db`, jalankan lagi, dan aplikasi harus berhenti dengan error `connect database: ...` dan exit code 1. Lalu `docker compose start db`.
+
+**Common mistakes:**
+- **Linter `misspell` menolak "cancelled".** Config kita memakai ejaan US, jadi tulis `canceled`, termasuk di komentar dan pesan test.
+- **`Payload{"config": cfg}`.** Seluruh config, termasuk `JWTSecret`, tertulis di log. Pilih field satu per satu.
+- **`defer stop()` bersama `os.Exit` di `main()`.** `stop()` tidak berjalan dan `gocritic` memperingatkan. Pakai pola `realMain()`.
+- **Urutan import.** Package bawaan Go di grup pertama, lalu baris kosong, lalu package project. Kalau linter mengeluh soal `goimports`, jalankan `make fmt`.
+- **Test menunggu selamanya.** Biasanya `cancel()` terlalu cepat dipanggil sebelum `app started` muncul, lalu `Connect` gagal karena context sudah dibatalkan. Itu sebabnya test memakai `waitForLog`.
+
+---
+
+## Step 6: `Makefile` + `.air.toml`
+
+**Why:** Biar kamu tidak perlu mengingat perintah panjang. `make run` menjalankan API dengan isi `.env`, dan `make dev` menjalankannya dengan *hot reload* (aplikasi otomatis restart setiap file `.go` berubah), mirip `vite` atau `nodemon`. Target `migrate-up/down`, `sqlc`, dan `seed` belum bisa jalan sampai issue #5 dan #7, jadi dibuat sebagai placeholder yang **sengaja gagal** dengan pesan yang jelas, supaya tidak ada yang mengira perintah itu sudah berjalan.
+
+### 6a. `Makefile` (EDIT: tiga tempat)
+
+**1. Ganti baris `.PHONY` di paling atas menjadi:**
+```make
+.PHONY: check lint fmt test tools run dev migrate-up migrate-down sqlc seed hooks ai-link
+```
+
+**2. Tambahkan blok variabel ini tepat di atas komentar `# Run everything CI runs: lint, build, test.`:**
+```make
+# Pinned version of air (hot reload), installed into ./bin by `make dev`.
+AIR_VERSION := v1.67.4
+AIR_BIN := $(BIN)/air-$(AIR_VERSION)
+AIR := $(BIN)/air
+
+# Load .env (if it exists) into the environment of the next command.
+# Values with spaces or & must be quoted in .env.
+LOAD_ENV := set -a; [ ! -f .env ] || . ./.env; set +a;
+```
+
+**3. Tambahkan blok target ini tepat di atas komentar `# Install git hooks from lefthook.yml`:**
+```make
+# Run the API with the settings from .env. Stop it with Ctrl+C.
+run:
+	@$(LOAD_ENV) go run ./cmd/api
+
+# Run the API and restart it on every .go change (config: .air.toml).
+dev: $(AIR_BIN)
+	@ln -sfn $(notdir $(AIR_BIN)) $(AIR)
+	@$(LOAD_ENV) $(AIR)
+
+$(AIR_BIN):
+	@echo "installing air $(AIR_VERSION) into ./bin"
+	@mkdir -p $(BIN)
+	@rm -f $(AIR)
+	GOBIN=$(BIN) go install github.com/air-verse/air@$(AIR_VERSION)
+	@mv $(BIN)/air $@
+
+# Placeholders: they fail on purpose, so nobody thinks they ran.
+migrate-up migrate-down:
+	@echo "make $@ is not ready yet: migrations come with issue #5"; exit 1
+
+sqlc:
+	@echo "make sqlc is not ready yet: it comes with issue #5"; exit 1
+
+seed:
+	@echo "make seed is not ready yet: it comes with issue #7"; exit 1
+```
+
+**Apa yang terjadi di sini:**
+- `LOAD_ENV` membaca `.env` ke environment untuk perintah berikutnya (`set -a` artinya "semua variabel yang di-set otomatis di-export", lalu `. ./.env` membaca file-nya). Kalau `.env` tidak ada, langkah ini dilewati dan config akan berhenti dengan pesan `JWT_SECRET is required`. Aturannya: nilai di `.env` yang mengandung spasi atau `&` harus diberi tanda kutip.
+- `dev` memasang `air` versi tetap (`v1.67.4`) ke `./bin` saat pertama dijalankan, dengan pola yang sama seperti golangci-lint: tidak perlu `brew install`, dan semua orang memakai versi yang sama. `rm -f $(AIR)` sebelum `go install` mencegah `go install` menimpa binary versi lama lewat symlink saat versinya dinaikkan.
+- `migrate-up migrate-down:` adalah dua target yang berbagi satu resep. `$@` berisi nama target yang sedang dijalankan.
+- Placeholder memakai `exit 1`, bukan `exit 0`. Perintah yang belum siap harus gagal dengan keras, bukan diam-diam "sukses".
+- Target `test` dan `lint` sudah ada dari PR #27, jadi tidak perlu ditambah lagi.
+
+### 6b. `.air.toml` (NEW, di root)
+
+**File:** `.air.toml`
+
+```toml
+# Hot reload config for `make dev`. Docs: https://github.com/air-verse/air
+root = "."
+tmp_dir = "tmp"
+
+[build]
+  cmd = "go build -o ./tmp/api ./cmd/api"
+  entrypoint = ["./tmp/api"]
+  include_ext = ["go"]
+  exclude_dir = ["tmp", "bin", "logs", "docs", "db", "api", ".git", ".ai", ".claude", ".cursor", ".vscode"]
+  exclude_regex = ["_test\\.go"]
+  delay = 500
+  stop_on_error = true
+  # Send Ctrl+C (SIGINT) instead of kill, so graceful shutdown runs on every reload.
+  send_interrupt = true
+  kill_delay = "3s"
+
+[log]
+  time = false
+
+[misc]
+  clean_on_exit = true
+```
+
+**Apa yang terjadi di sini:**
+- `cmd` membangun binary ke `tmp/api`, dan `entrypoint` menjalankannya. Folder `tmp/` sudah ada di `.gitignore`.
+- `exclude_dir` dan `exclude_regex` mencegah restart yang tidak perlu saat file test, dokumen, atau log berubah.
+- `send_interrupt = true` membuat air mengirim **Ctrl+C (SIGINT)**, bukan kill paksa, saat me-restart aplikasi. Hasilnya graceful shutdown dari Step 5 ikut berjalan di setiap reload (di log terlihat "shutting down" sebelum "database connected" lagi).
+- `delay = 500` menunggu setengah detik setelah file berubah, supaya beberapa simpanan beruntun cukup memicu satu rebuild.
+
+**Check:**
+```bash
+make migrate-up     # → "make migrate-up is not ready yet: ... issue #5", lalu Error 1 (memang disengaja)
+make seed           # → "... comes with issue #7"
+make run            # API jalan dengan isi .env; tekan Ctrl+C
+make dev            # pertama kali memasang air (beberapa puluh detik), lalu hot reload
+make check          # tetap hijau
+```
+- `make run`: hasilnya sama seperti Step 5. Setelah Ctrl+C kamu melihat "shutting down", lalu `make` menambahkan baris `make: *** [run] Error 1` atau `Interrupt`. Itu normal, karena Ctrl+C juga ikut menghentikan `make`.
+- `make dev`: setelah muncul "running...", ubah dan simpan file `.go` mana pun (misalnya tambah satu baris komentar). Air menulis `cmd/api/main.go has changed`, aplikasi lama mencetak "shutting down", lalu aplikasi baru mencetak "database connected" lagi. Tekan Ctrl+C untuk berhenti, dan folder `tmp/` dibersihkan otomatis.
+
+**Common mistakes:**
+- **Tab, bukan spasi.** Baris resep di Makefile harus diawali karakter Tab. Kalau muncul `*** missing separator`, itulah penyebabnya.
+- **`make dev` lama di awal.** Pertama kali, `go install` mengunduh dan mengompilasi air. Setelahnya cepat.
+- **`.env` berisi `&` tanpa kutip.** Shell menganggap `&` sebagai "jalankan di background", dan nilai setelahnya hilang. Tulis `DATABASE_URL="postgres://...&x=1"`.
+- **Port sudah dipakai.** Belum relevan sekarang (belum ada server HTTP), tapi akan muncul di #3 kalau `make run` dan `make dev` berjalan bersamaan.
+
+---
+
+## Setelah Step 5–6
+
+```bash
+make check     # 0 issues, semua test lolos
+```
+
+Usulan rencana commit (jalankan `/atomic-conventional-commits`):
+- `feat(infra): wire config, logger, and database in main with graceful shutdown` → `cmd/api/main.go`, `cmd/api/main_test.go`
+- `build(setup): add run, dev, and placeholder make targets` → `Makefile`, `.air.toml`
+- `docs(infra): update plan for step 5 and 6` → file plan ini
+
+Setelah itu `git push`, lalu:
+1. Perbarui deskripsi PR #28 (jalankan `/create-pr`, yang akan menulis ulang deskripsinya). Ganti `Refs #2` menjadi **`Closes #2`** dan hapus bullet "Still to do for #2".
+2. Tunggu CI **Lint** dan **Test** hijau, dan pastikan log-nya berisi `--- PASS: TestRun_ShutsDownOnCancel`, bukan SKIP.
+3. Review kode dengan comment `@claude-code-review`, lalu jalankan `/review-task 28 2`. Semua item DoD seharusnya ✅.
+
+Kode di Step 5 dan 6 sudah di-compile dan dites di salinan project: `golangci-lint` `0 issues`, semua test lolos dengan `-race`, dites terhadap Postgres sungguhan dari `docker compose`, dengan Ctrl+C (SIGINT) sungguhan (exit code 0), dan `make dev` dites sampai restart otomatis berjalan. Yang belum dicoba adalah run di GitHub Actions untuk test `cmd/api` yang baru.
 
 ## Definition of Done (issue #2)
 - [ ] `docker-compose.yml`: Postgres 16 dengan volume `pgdata`; `docker compose up -d` berjalan
@@ -1125,3 +1587,4 @@ Kalau Step 1–4 sudah selesai, bilang **"lanjut step 5"**. Bagian ini akan diis
 - 2026-11-08: logger ditambah level (`LOG_LEVEL`), field `service`/`env`/`version`, dan API `Payload` / `SDC`
 - 2026-11-08: logger mengambil 5 ide: SDC hanya string, `x_request_id` di level teratas, key `timestamp`/`message`, pretty writer, error code ke SDC (rencana di #3)
 - 2026-11-21: Step 4b ditambahkan: Postgres service container di CI dan `TEST_DATABASE_URL`, plus pengaman `CI=true` supaya test DB gagal (bukan SKIP) kalau setup CI salah
+- 2026-11-21: Step 5 (wiring `main.go` + graceful shutdown) dan Step 6 (`make run`/`dev`, placeholder, `.air.toml`) ditulis lengkap dengan kode, ditambah tabel "Yang belum selesai" dari review PR #28
