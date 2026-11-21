@@ -16,7 +16,7 @@ Follow `docs/architecture.md` and the folder READMEs. Work through the steps in 
 7. **HTTP** in `internal/delivery/http/`: DTOs, a thin handler, the route, and error mapping.
 8. **Wire** it in `cmd/api/main.go`.
 9. **Contract**: update `api/openapi.yaml`.
-10. **Verify**: run `go vet ./...` and `go test ./...`, and hit the endpoint with curl.
+10. **Verify**: run `make check` (strict lint + build + race tests), and hit the endpoint with curl.
 
 ## When done
 
