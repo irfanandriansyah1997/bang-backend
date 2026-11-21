@@ -32,6 +32,27 @@ jobs:
   test:
     name: Test # required by the main ruleset; keep this name
     runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: app
+          POSTGRES_PASSWORD: app
+          POSTGRES_DB: fieldservice_test
+        ports:
+          - 5432:5432
+        # Wait until Postgres accepts connections before the steps start
+        options: >-
+          --health-cmd "pg_isready -U app -d fieldservice_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      # Read by TestConnect_RealDatabase (and later by repository tests)
+      TEST_DATABASE_URL: postgres://app:app@localhost:5432/fieldservice_test?sslmode=disable
+
     steps:
       - uses: actions/checkout@v4
 
