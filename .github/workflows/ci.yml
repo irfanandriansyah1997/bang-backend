@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   lint:
-    name: Lint
+    name: Lint # required by the main ruleset; keep this name
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -24,20 +24,13 @@ jobs:
         with:
           go-version-file: go.mod
 
-      - name: gofmt
-        run: |
-          files=$(gofmt -l .)
-          if [ -n "$files" ]; then
-            echo "::error::Not formatted. Run: gofmt -w ."
-            echo "$files"
-            exit 1
-          fi
-
-      - name: go vet
-        run: go vet ./...
+      # Strict lint from .golangci.yml: formatters (gofmt, goimports), go vet, and the rest
+      - uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.15.0
 
   test:
-    name: Test
+    name: Test # required by the main ruleset; keep this name
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
