@@ -1,6 +1,8 @@
 ---
 name: add-feature
 description: Add a new backend feature or endpoint end-to-end following this repo's clean architecture (migration, sqlc query, domain, usecase, repository, HTTP handler, wiring, OpenAPI). Use when the user asks to implement a GitHub issue, a new endpoint, or a new business rule.
+# Planning and writing code needs a stronger model; Sonnet is half the price of Opus.
+model: sonnet
 ---
 
 # Add a feature
