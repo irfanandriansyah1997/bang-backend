@@ -10,7 +10,9 @@ name: Claude Review
 # explicitly. The engineer reads the comments and decides what to fix.
 #
 # The run also reports a commit status named "Claude Review" on the PR head:
-# pending while it runs, success when it finishes, failure otherwise. An
+# pending while it runs, then the review's verdict: success when Claude says the
+# code is ready to merge, failure when it says needs changes or blocked (or the
+# review failed). The status follows the verdict, not whether the job ran. An
 # issue_comment job runs on main, so its own check would never show on the PR;
 # a commit status is how the PR (and the main ruleset) can see it.
 on:
@@ -135,12 +137,30 @@ jobs:
               echo "A newer run owns the status of ${SHA:0:7}; leaving it as it is"
               exit 0
             fi
-            if [ "$REVIEW_OUTCOME" = "success" ]; then
-              state=success
-              description="Claude finished reviewing this commit"
-            else
+            if [ "$REVIEW_OUTCOME" != "success" ]; then
               state=failure
               description="The review failed or was cancelled; comment @claude-code-review to run it again"
+            else
+              # The review decides. The summary comment has a marker line like
+              # "<!-- check-pr-verdict: ready; commit: <full sha> -->" (see the check-pr skill).
+              marker=$(gh api "repos/$REPO/issues/$PR/comments" --paginate \
+                --jq '.[] | select(.body | startswith("<!-- check-pr -->")) | .body' \
+                | sed -n 's/^<!-- check-pr-verdict: \([a-z-]*\); commit: \([0-9a-f]\{40\}\) -->$/\1 \2/p' | tail -1)
+              verdict=${marker% *}
+              reviewed=${marker#* }
+              if [ -z "$marker" ] || [ "$reviewed" != "$SHA" ]; then
+                state=failure
+                description="Claude did not post a verdict for this commit; comment @claude-code-review to run it again"
+              elif [ "$verdict" = "ready" ]; then
+                state=success
+                description="Claude: ready to merge"
+              elif [ "$verdict" = "blocked" ]; then
+                state=failure
+                description="Claude: blocked, see the review comments"
+              else
+                state=failure
+                description="Claude: needs changes, see the review comments"
+              fi
             fi
           fi
           gh api "repos/$REPO/statuses/$SHA" \
