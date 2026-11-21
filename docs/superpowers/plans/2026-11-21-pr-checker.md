@@ -282,3 +282,4 @@ Review comment di PR ditulis dalam bahasa Inggris, sama seperti issue dan PR lai
   - #24: workflow `claude-review.yml` lolos actionlint, dan logika gate disimulasikan. **Belum dites end-to-end**: perlu secret `CLAUDE_CODE_OAUTH_TOKEN` dan workflow harus sudah ada di `main` (GitHub menjalankan workflow `issue_comment` dari branch default).
   - #25: `create-pr` dan `review-task` sekarang merujuk ke `check-pr`, dan README diperbarui
 - Catatan untuk #2: dengan lint baru, branch `feat/2-infrastructure` punya 26 temuan (20 revive: komentar doc pada fungsi exported; 4 wrapcheck; 2 gosec: permission file/folder). Ada juga bug di `logger.go`: `os.Mkdir` seharusnya `os.MkdirAll`.
+- 2026-11-21: review comments switched to **one inline comment per finding** on its line, with GitHub `suggestion` blocks (one-click *Commit suggestion*). The summary is shorter and only lists the findings. Workflow limits raised to 60 turns / 20 minutes.
