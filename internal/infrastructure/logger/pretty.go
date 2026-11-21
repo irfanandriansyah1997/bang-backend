@@ -3,6 +3,7 @@ package logger
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 )
 
@@ -17,12 +18,14 @@ func NewPrettyWriter(w io.Writer) io.Writer {
 func (p prettyWriter) Write(line []byte) (int, error) {
 	var out bytes.Buffer
 	if err := json.Indent(&out, bytes.TrimSpace(line), "", "  "); err != nil {
-		return p.w.Write(line)
+		out.Reset()
+		out.Write(line) // not JSON: write the line as it is
+	} else {
+		out.WriteByte('\n')
 	}
 
-	out.WriteByte('\n')
 	if _, err := p.w.Write(out.Bytes()); err != nil {
-		return 0, err
+		return 0, fmt.Errorf("logger: pretty write: %w", err)
 	}
 
 	return len(line), nil
