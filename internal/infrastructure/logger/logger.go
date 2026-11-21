@@ -126,8 +126,11 @@ func WithSDC(ctx context.Context, sdc SDC) context.Context {
 }
 
 func sdcFrom(ctx context.Context) SDC {
-	sdc, _ := ctx.Value(sdcKey{}).(SDC)
-	return sdc
+	if sdc, ok := ctx.Value(sdcKey{}).(SDC); ok {
+		return sdc
+	}
+
+	return nil
 }
 
 func WithRequestID(ctx context.Context, id string) context.Context {
@@ -135,8 +138,11 @@ func WithRequestID(ctx context.Context, id string) context.Context {
 }
 
 func RequestID(ctx context.Context) string {
-	id, _ := ctx.Value(requestIDKey{}).(string)
-	return id
+	if id, ok := ctx.Value(requestIDKey{}).(string); ok {
+		return id
+	}
+
+	return ""
 }
 
 func ParseLevel(s string) (slog.Level, error) {
