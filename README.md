@@ -24,19 +24,36 @@ This repo is the backend (`/api/v1`). It is also a learning project for working 
 
 ### Software
 
-| Tool           | Version                                                  | Needed for                                                           | Install (macOS)                                                        |
+<<<<<<< HEAD
+| Tool | Version | Needed for | Install (macOS) |
 | -------------- | -------------------------------------------------------- | -------------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| Go             | **1.22+** (needed for method/path routing in `net/http`) | Building and running the API                                         | `brew install go`                                                      |
-| Docker runtime | Docker Compose v2                                        | PostgreSQL (and optional observability stack)                        | `brew install orbstack` (lighter than Docker Desktop on Apple Silicon) |
-| PostgreSQL     | 16 (runs in Docker; no local install needed)             | Database                                                             | via `docker-compose.yml`                                               |
-| GNU Make       | any                                                      | Task shortcuts                                                       | preinstalled on macOS                                                  |
-| golangci-lint  | v2.15+                                                   | Strict lint: formatting, vet, bugs, security (like ESLint + plugins) | `brew install golangci-lint`                                           |
-| lefthook       | latest                                                   | Git hooks (pre-commit checks, like husky)                            | `brew install lefthook`                                                |
-| goose          | latest                                                   | Database migrations                                                  | `brew install goose`                                                   |
-| sqlc           | latest                                                   | Generating type-safe Go from SQL                                     | `brew install sqlc`                                                    |
-| air            | latest                                                   | Hot reload in development                                            | `go install github.com/air-verse/air@latest`                           |
-| API client     | —                                                        | Testing endpoints                                                    | curl, [Bruno](https://www.usebruno.com/), or Postman                   |
-| DB viewer      | —                                                        | Inspecting data (optional)                                           | TablePlus or DBeaver                                                   |
+| Go | **1.22+** (needed for method/path routing in `net/http`) | Building and running the API | `brew install go` |
+| Docker runtime | Docker Compose v2 | PostgreSQL (and optional observability stack) | `brew install orbstack` (lighter than Docker Desktop on Apple Silicon) |
+| PostgreSQL | 16 (runs in Docker; no local install needed) | Database | via `docker-compose.yml` |
+| GNU Make | any | Task shortcuts | preinstalled on macOS |
+| golangci-lint | v2.15+ | Strict lint: formatting, vet, bugs, security (like ESLint + plugins) | `brew install golangci-lint` |
+| lefthook | latest | Git hooks (pre-commit checks, like husky) | `brew install lefthook` |
+| goose | latest | Database migrations | `brew install goose` |
+| sqlc | latest | Generating type-safe Go from SQL | `brew install sqlc` |
+| air | latest | Hot reload in development | `go install github.com/air-verse/air@latest` |
+| API client | — | Testing endpoints | curl, [Bruno](https://www.usebruno.com/), or Postman |
+| DB viewer | — | Inspecting data (optional) | TablePlus or DBeaver |
+=======
+| Tool | Version | Needed for | Install (macOS) |
+|---|---|---|---|
+| Go | **1.22+** (needed for method/path routing in `net/http`) | Building and running the API | `brew install go` |
+| Docker runtime | Docker Compose v2 | PostgreSQL (and optional observability stack) | `brew install orbstack` (lighter than Docker Desktop on Apple Silicon) |
+| PostgreSQL | 16 (runs in Docker; no local install needed) | Database | via `docker-compose.yml` |
+| GNU Make | any | Task shortcuts | preinstalled on macOS |
+| golangci-lint | v2.15.0 (pinned in `Makefile`) | Strict lint: formatting, vet, bugs, security (like ESLint + plugins) | Automatic: `make lint` installs it into `./bin` on first run (or `make tools`) |
+| lefthook | latest | Git hooks (pre-commit checks, like husky) | `brew install lefthook` |
+| goose | latest | Database migrations | `brew install goose` |
+| sqlc | latest | Generating type-safe Go from SQL | `brew install sqlc` |
+| air | latest | Hot reload in development | `go install github.com/air-verse/air@latest` |
+| API client | — | Testing endpoints | curl, [Bruno](https://www.usebruno.com/), or Postman |
+| DB viewer | — | Inspecting data (optional) | TablePlus or DBeaver |
+
+> > > > > > > a60f3b9 (build(setup): pin golangci-lint version in makefile)
 
 Optional, for observability: Elasticsearch, Kibana, and Filebeat run as a Docker Compose profile and need about 1.5–2 GB of extra RAM.
 

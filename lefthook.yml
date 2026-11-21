@@ -6,8 +6,8 @@ pre-commit:
   commands:
     lint:
       glob: "*.go"
-      # strict lint from .golangci.yml (formatting, vet, and the rest)
-      run: golangci-lint run ./...
+      # strict lint from .golangci.yml, with the version pinned in the Makefile
+      run: make lint
     build:
       glob: "*.go"
       run: go build -o /dev/null ./...

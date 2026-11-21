@@ -1,19 +1,34 @@
-.PHONY: check lint fmt test hooks ai-link
+.PHONY: check lint fmt test tools hooks ai-link
 
-GOLANGCI_LINT ?= golangci-lint
+# One golangci-lint version for everyone: make, the git hook, VS Code, and CI.
+# To upgrade, change it here AND in .github/workflows/ci.yml (golangci-lint-action `version:`).
+GOLANGCI_LINT_VERSION := v2.15.0
+BIN := $(CURDIR)/bin
+# The real binary has the version in its name, so a version bump installs the new one.
+GOLANGCI_LINT_BIN := $(BIN)/golangci-lint-$(GOLANGCI_LINT_VERSION)
+# Stable path for VS Code (.vscode/settings.json) and lefthook; a symlink to the binary above.
+GOLANGCI_LINT := $(BIN)/golangci-lint
 
 # Run everything CI runs: lint, build, test.
 check: lint test
 
 # Strict lint (config: .golangci.yml). Includes gofmt/goimports and go vet.
-lint:
-	@command -v $(GOLANGCI_LINT) >/dev/null || { echo "golangci-lint not found. Install it with: brew install golangci-lint"; exit 1; }
+lint: tools
 	$(GOLANGCI_LINT) run ./...
 
 # Fix formatting and import order in place.
-fmt:
-	@command -v $(GOLANGCI_LINT) >/dev/null || { echo "golangci-lint not found. Install it with: brew install golangci-lint"; exit 1; }
+fmt: tools
 	$(GOLANGCI_LINT) fmt ./...
+
+# Install the pinned golangci-lint into ./bin (once, or after a version bump).
+tools: $(GOLANGCI_LINT_BIN)
+	@ln -sfn $(notdir $(GOLANGCI_LINT_BIN)) $(GOLANGCI_LINT)
+
+$(GOLANGCI_LINT_BIN):
+	@echo "installing golangci-lint $(GOLANGCI_LINT_VERSION) into ./bin"
+	@mkdir -p $(BIN)
+	GOBIN=$(BIN) go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
+	@mv $(BIN)/golangci-lint $@
 
 # Build everything, then run tests with the race detector and coverage.
 test:
