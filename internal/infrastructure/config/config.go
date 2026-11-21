@@ -38,6 +38,12 @@ func LoadFrom(getenv func(string) string) (Config, error) {
 		return Config{}, errors.New("config: JWT_SECRET is required")
 	}
 
+	// The default URL is the local docker-compose login (app:app). Outside local,
+	// a forgotten DATABASE_URL must fail at startup, not connect with a known password.
+	if cfg.AppEnv != "local" && getenv("DATABASE_URL") == "" {
+		return Config{}, errors.New("config: DATABASE_URL is required when APP_ENV is not local")
+	}
+
 	return cfg, nil
 }
 

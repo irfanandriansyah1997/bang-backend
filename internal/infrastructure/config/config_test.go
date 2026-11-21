@@ -22,6 +22,8 @@ func TestLoadFrom(t *testing.T) {
 		{name: "defaults", env: map[string]string{"JWT_SECRET": "s3cret"}, wantPort: "8080", wantLogLevel: "info"},
 		{name: "custom values", env: map[string]string{"JWT_SECRET": "s3cret", "PORT": "9090", "LOG_LEVEL": "debug"}, wantPort: "9090", wantLogLevel: "debug"},
 		{name: "missing secret", env: map[string]string{}, wantErr: true},
+		{name: "missing database url outside local", env: map[string]string{"JWT_SECRET": "s3cret", "APP_ENV": "production"}, wantErr: true},
+		{name: "database url set outside local", env: map[string]string{"JWT_SECRET": "s3cret", "APP_ENV": "production", "DATABASE_URL": "postgres://u:p@db:5432/x"}, wantPort: "8080", wantLogLevel: "info"},
 	}
 
 	for _, tt := range tests {
