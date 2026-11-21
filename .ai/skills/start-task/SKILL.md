@@ -1,13 +1,23 @@
 ---
 name: start-task
-description: Brief the developer on a GitHub issue before they start it. Explain what to build, step by step with code snippets, and list the acceptance criteria and Definition of Done to check against. Use when the user shares an issue link or number and wants to understand or start the task themselves, e.g. "start issue #2", "jelasin task ini", "apa yang harus dikerjain di <issue link>", "mau kerjain issue berikutnya". Do NOT write the code into the repo; use add-feature for that.
+description: Brief the developer on a GitHub issue before they start it. Writes a plan file in docs/superpowers/plans/ with what to build, step by step with full source code, and the acceptance criteria and Definition of Done, then gives a short summary in chat. Keeps that file updated when requirements change. Use when the user shares an issue link or number and wants to understand or start the task themselves, e.g. "start issue #2", "jelasin task ini", "apa yang harus dikerjain di <issue link>", "mau kerjain issue berikutnya". Do NOT write the code into the repo; use add-feature for that.
 ---
 
 # Start a task
 
 The developer is **new to Go** (strong React/TypeScript background) and wants to **type the code themselves**. They asked to be "spoon-fed": give them the full source code for every file, explain it simply, and tell them exactly where it goes and how to check it. Explain in the language the user writes in (usually Indonesian); keep code, commands, and file names as-is.
 
-**Do not create or edit code files in the repo.** Source code goes in your reply only, for the user to type or copy. Editing the issue or the board is fine **after asking** (step 5).
+**Do not create or edit code files in the repo.** The brief, with all source code, goes into **one plan file** (see [Where the brief goes](#where-the-brief-goes)), which the user reads and types from. Editing the issue or the board is fine **after asking** (step 5).
+
+### Where the brief goes
+
+- Write the full brief to `docs/superpowers/plans/YYYY-MM-DD-issue-<N>-<slug>.md` (today's date, e.g. `2026-11-08-issue-2-infrastructure.md`). It's a doc, not code, so creating it is allowed.
+- **In chat, only reply with a short summary**: the file link, the goal, the list of step titles, any warnings (blocked dependency, a tool that isn't running), and what to do first. Don't paste the full brief into chat.
+- **Keep the file current.** When the user asks for changes later (a new requirement, a different API, the next batch of steps), update the plan file in place: replace the affected step with the new full version, add a line to the **Changelog** section at the bottom, and tell the user in chat which steps changed. Don't make them hunt through old messages.
+- The plan file has a **Progress** checklist (one box per step) near the top so the user can tick steps as they go.
+- Code in the plan file must be the exact code you compiled and tested in the scratch module. Copy it from the scratch files rather than retyping it.
+- If a plan file for this issue already exists, update it instead of creating a second one.
+- Commit the plan file together with the user's work on the feature branch (`docs(<feature>): add plan for #N`) only when the user commits, and include it in the commit plan that `/atomic-conventional-commits` proposes.
 
 ### Teaching rules (always)
 
@@ -30,7 +40,7 @@ A GitHub issue URL (`https://github.com/irfanandriansyah1997/bang-backend/issues
 - [ ] 1. Read the issue, its labels, and its board status
 - [ ] 2. Read the context (spec, architecture, folder READMEs, current code)
 - [ ] 3. Check dependencies and what's already done
-- [ ] 4. Write the brief (goal → steps with snippets → DoD)
+- [ ] 4. Write the brief to the plan file (goal → steps with full code → DoD), then a short chat summary
 - [ ] 5. Offer to update the issue / board
 ```
 
@@ -58,14 +68,21 @@ If the issue is closed, say so and stop unless the user still wants a brief.
 
 ### 4. Write the brief
 
-Use this structure:
+Write it to the plan file using this structure:
 
 ````markdown
-## Issue #N: <title>
+# Plan: Issue #N: <title>
+> Issue: <issue URL> · Branch: `feat/<N>-<short-slug>` · Last updated: <YYYY-MM-DD>
+
 **Goal:** <one or two sentences, plain language>
-**Branch:** `feat/<N>-<short-slug>`  (`git switch -c feat/<N>-<slug>` from an up-to-date main)
 **Depends on:** #X (done ✅ / not done ⚠️)
 **Already done in the repo:** <criteria that already pass, or "nothing yet">
+**Before you start:** <tools to install/start, e.g. Docker; `git switch -c feat/<N>-<slug>` from an up-to-date main>
+
+## Progress
+- [ ] Step 1: <title>
+- [ ] Step 2: <title>
+- [ ] ...
 
 ## What you'll build
 <a small tree of the files this task creates/edits, marked NEW / EDIT>
@@ -113,7 +130,12 @@ go build ./...      # (no output = success)
 
 ## When you're stuck
 <2–3 example prompts the user can send to get hints rather than full answers>
+
+## Changelog
+- <YYYY-MM-DD>: plan created
 ````
+
+Then reply in chat with the short summary described in [Where the brief goes](#where-the-brief-goes).
 
 Guidelines for steps and source code:
 
@@ -123,7 +145,7 @@ Guidelines for steps and source code:
 - Code must follow `docs/architecture.md` and the folder READMEs, because the user will copy it as the pattern for later tasks.
 - Explain new Go concepts (interfaces, pointers, `context`, error returns, `defer`, struct tags) the first time they appear in this brief.
 - Only include DoD items that apply (no OpenAPI item for a tooling task).
-- Long tasks: brief the first 3–5 steps in full, list the rest as titles, and offer to continue with the next batch when the user is ready.
+- Long tasks: write the first 3–5 steps in full, list the rest as titles in Progress and as a short "Next batch" section, and offer to continue. When the user says continue, fill those steps into the **same** plan file.
 
 ### 5. Offer to update the issue and board
 
