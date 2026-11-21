@@ -54,7 +54,7 @@ func run(ctx context.Context, cfg config.Config, stdout io.Writer) error {
 	}
 	defer logFile.Close()
 
-	// The terminal is indented only in loal development.
+	// The terminal is indented only in local development.
 	// The log file always gets the raw JSON line, one per entry.
 	terminal := stdout
 	if cfg.AppEnv == "local" {
