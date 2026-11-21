@@ -1,5 +1,5 @@
 # Plan: Issue #2: Infrastructure (config, logger, Postgres, docker-compose, Makefile)
-> Issue: https://github.com/irfanandriansyah1997/bang-backend/issues/2 · Branch: `feat/2-infrastructure` · Last updated: 2026-11-08
+> Issue: https://github.com/irfanandriansyah1997/bang-backend/issues/2 · Branch: `feat/2-infrastructure` · Last updated: 2026-11-21
 
 **Goal:** Siapkan "kotak perkakas" yang dipakai semua fitur: membaca konfigurasi dari env, logger JSON yang bisa dicari di Kibana, koneksi ke Postgres, dan aplikasi yang bisa dimatikan dengan rapi (Ctrl+C).
 
@@ -22,6 +22,7 @@ Semua kode di file ini sudah di-compile dan di-test di project percobaan: `go ve
 - [ ] Step 2: Package `config` (+ `.env.example`)
 - [ ] Step 3: Package `logger` (level, payload, SDC, x_request_id, pretty print)
 - [ ] Step 4: Package `database` (pgxpool + ping)
+- [ ] Step 4b: Postgres service container di CI, supaya test database ikut jalan
 - [ ] Step 5: Sambungkan semuanya di `cmd/api/main.go` + graceful shutdown *(batch berikutnya)*
 - [ ] Step 6: `Makefile` + `.air.toml` *(batch berikutnya)*
 
@@ -38,6 +39,7 @@ internal/infrastructure/logger/logger_test.go        NEW   (Step 3)
 internal/infrastructure/database/database.go         NEW   (Step 4)
 internal/infrastructure/database/database_test.go    NEW   (Step 4)
 go.mod, go.sum                                       EDIT  (Step 4, otomatis lewat go get)
+.github/workflows/ci.yml                             EDIT  (Step 4b)
 cmd/api/main.go, cmd/api/main_test.go                EDIT  (Step 5)
 Makefile, .air.toml                                  EDIT / NEW (Step 6)
 ```
@@ -924,10 +926,16 @@ func TestConnect_Unreachable(t *testing.T) {
 	}
 }
 
-// Runs only when TEST_DATABASE_URL is set, e.g. against docker compose.
+// Runs only when TEST_DATABASE_URL is set: locally against docker compose,
+// and in CI against the Postgres service container (see Step 4b).
 func TestConnect_RealDatabase(t *testing.T) {
 	url := os.Getenv("TEST_DATABASE_URL")
 	if url == "" {
+		// GitHub Actions always sets CI=true. Fail instead of skipping there,
+		// so a broken CI setup can't hide this test.
+		if os.Getenv("CI") == "true" {
+			t.Fatal("TEST_DATABASE_URL must be set in CI")
+		}
 		t.Skip("TEST_DATABASE_URL not set")
 	}
 
@@ -939,8 +947,10 @@ func TestConnect_RealDatabase(t *testing.T) {
 }
 ```
 
-- Dua test pertama **tidak butuh database**, jadi tetap jalan di CI.
-- Test ketiga hanya jalan kalau `TEST_DATABASE_URL` di-set. Kalau tidak di-set, test-nya otomatis dilewati (SKIP).
+- Dua test pertama **tidak butuh database**, jadi selalu jalan, di laptop maupun di CI.
+- Test ketiga butuh Postgres sungguhan, jadi hanya jalan kalau `TEST_DATABASE_URL` di-set:
+  - **Di laptop:** kalau tidak di-set, test-nya dilewati (SKIP). `make check` tetap bisa jalan tanpa Docker.
+  - **Di CI:** GitHub Actions menyalakan Postgres dan men-set `TEST_DATABASE_URL` (lihat Step 4b). Kalau variabel itu lupa di-set, test-nya **gagal**, bukan SKIP. Tanpa pengecekan `CI`, salah setup di workflow akan membuat test ini diam-diam tidak pernah jalan, padahal CI tetap hijau.
 
 **Check (tanpa DB):**
 ```bash
@@ -954,6 +964,90 @@ TEST_DATABASE_URL="postgres://app:app@localhost:5432/fieldservice?sslmode=disabl
   go test -v -run TestConnect_RealDatabase ./internal/infrastructure/database
 ```
 Hasilnya harus `--- PASS`. Check ini belum diuji di project percobaan, karena Docker belum menyala saat plan ini ditulis.
+
+### 4b. Jalankan test database di CI
+
+**File:** `.github/workflows/ci.yml` (EDIT, hanya job `Test`)
+
+**Why:** Mesin CI (runner GitHub) tidak punya Postgres, dan `docker compose` di laptop kamu tidak ikut jalan di sana. GitHub Actions punya fitur **service container**: sebelum step pertama dijalankan, GitHub menyalakan container lain di samping job, dan container itu dimatikan lagi setelah job selesai. Kita pakai image yang sama dengan `docker-compose.yml` (`postgres:16`) supaya hasil test di CI sama dengan di laptop.
+
+Analogi frontend: mirip menjalankan mock server (misalnya `json-server`) di `beforeAll` lalu mematikannya di `afterAll`, tapi yang mengatur hidup-matinya GitHub, bukan kode test.
+
+Ganti job `test` di `ci.yml` menjadi seperti ini. Job `lint` tidak berubah, dan nama job tetap `Test` karena ruleset di `main` mewajibkan nama itu.
+
+```yaml
+  test:
+    name: Test # required by the main ruleset; keep this name
+    runs-on: ubuntu-latest
+
+    # A throwaway Postgres for tests that need a real database.
+    # Same image as docker-compose.yml, so CI matches local.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: app
+          POSTGRES_PASSWORD: app
+          POSTGRES_DB: fieldservice_test
+        ports:
+          - 5432:5432
+        # Wait until Postgres accepts connections before the steps start
+        options: >-
+          --health-cmd "pg_isready -U app -d fieldservice_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      # Read by TestConnect_RealDatabase (and later by repository tests)
+      TEST_DATABASE_URL: postgres://app:app@localhost:5432/fieldservice_test?sslmode=disable
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: go build
+        run: go build -o /dev/null ./...
+
+      - name: go test
+        run: go test -race -count=1 -cover ./...
+```
+
+**What this does:**
+1. `services.postgres` menyalakan Postgres 16 dan membuka port 5432 di runner, jadi test bisa connect ke `localhost:5432`.
+2. `options: --health-cmd ...` membuat GitHub **menunggu** sampai Postgres siap menerima koneksi. Tanpa ini, step `go test` bisa mulai lebih dulu dan gagal dengan `connection refused`.
+3. `env.TEST_DATABASE_URL` di level job berlaku untuk semua step, jadi `go test` ikut membacanya.
+4. Nama database-nya `fieldservice_test`, bukan `fieldservice`. Kebiasaan ini berguna nanti: database untuk test terpisah dari database untuk development, supaya test yang menghapus data tidak menyentuh data lokal kamu.
+
+| Konsep | Artinya | Di frontend |
+|---|---|---|
+| `services:` | Container pendamping yang hidup selama job berjalan | Mock server di `beforeAll` / `afterAll` |
+| `--health-cmd` | Perintah untuk mengecek apakah container sudah siap | `await waitOn("tcp:5432")` |
+| `env:` di level job | Environment variable untuk semua step | `process.env` di `.env.test` |
+| `CI=true` | Di-set otomatis oleh GitHub Actions | `process.env.CI` yang dibaca Jest |
+
+**Password `app:app` aman ditulis di sini?** Ya. Database ini hanya hidup beberapa menit di mesin CI, tidak bisa diakses dari luar, dan isinya data test. Secret sungguhan, misalnya `JWT_SECRET` production, tetap harus disimpan di GitHub Secrets dan tidak boleh ditulis di file workflow.
+
+**Check (di CI):** push branch lalu buka tab Actions di PR. Di log step `go test`, cari baris `ok  .../internal/infrastructure/database`. Untuk memastikan test DB benar-benar jalan (bukan SKIP), jalankan `go test -v` sekali di CI atau lihat log-nya: harus ada `--- PASS: TestConnect_RealDatabase`. Check ini belum diuji, karena workflow-nya baru akan jalan setelah kamu push.
+
+**Check (di laptop, meniru CI):**
+```bash
+docker compose up -d
+CI=true TEST_DATABASE_URL="postgres://app:app@localhost:5432/fieldservice?sslmode=disable" \
+  go test -v ./internal/infrastructure/database
+```
+Ketiga test harus `PASS`. Lalu coba tanpa `TEST_DATABASE_URL`:
+```bash
+CI=true go test -v -run TestConnect_RealDatabase ./internal/infrastructure/database
+```
+Hasilnya harus `FAIL` dengan pesan `TEST_DATABASE_URL must be set in CI`. Ini membuktikan pengamannya bekerja.
+
+**Kalau branch kamu sudah di-rebase ke `main` setelah PR #27 di-merge:** job `lint` di `ci.yml` sudah memakai `golangci-lint-action`. Biarkan job itu apa adanya, dan cukup ganti job `test`.
+
+**Alternatif yang tidak dipilih:** library [testcontainers-go](https://golang.testcontainers.org/) bisa menyalakan Postgres dari dalam kode test, jadi tidak perlu setup apa pun di workflow. Kekurangannya, Docker wajib menyala setiap kali `go test` dijalankan di laptop, dan konsepnya lebih banyak untuk dipelajari sekarang. Service container sudah cukup untuk project ini.
 
 **Common mistakes:**
 - **Lupa `go get`.** Muncul error `no required module provides package github.com/jackc/pgx/v5/pgxpool; to add it: go get github.com/jackc/pgx/v5/pgxpool`. Jalankan saja perintah yang disarankan di pesan error itu.
@@ -972,6 +1066,7 @@ Ini titik yang pas untuk commit. Usulan rencana commit (jalankan `/atomic-conven
 - `feat(infra): add config package` → `.env.example`, `config/`
 - `feat(infra): add json logger with payload and sdc` → `logger/`
 - `feat(infra): add postgres connection pool` → `database/`, `go.mod`, `go.sum`
+- `ci(github): run database tests against postgres service` → `.github/workflows/ci.yml`
 - `docs(infra): add plan for #2` → file plan ini
 
 ## Next batch (Step 5–6)
@@ -996,7 +1091,7 @@ Kalau Step 1–4 sudah selesai, bilang **"lanjut step 5"**. Bagian ini akan diis
 - [ ] `database.Connect` membuka `pgxpool` dan melakukan ping saat start; error-nya jelas kalau DB mati
 - [ ] Graceful shutdown: Ctrl+C → log "shutting down" → pool DB ditutup → exit 0
 - [ ] `Makefile`: `run`, `dev`, `test`, `lint` berfungsi; `migrate-up/down`, `sqlc`, `seed` berupa placeholder yang menunjuk ke #5 dan #7
-- [ ] Ada test untuk config, logger, dan database (test yang tidak butuh DB tetap jalan di CI)
+- [ ] Ada test untuk config, logger, dan database; test database yang butuh Postgres ikut jalan di CI lewat service container (`TestConnect_RealDatabase` `PASS`, bukan SKIP)
 - [ ] `make check` lolos
 - [ ] Commit memakai format `<type>(<feature>): <message>`; body PR berisi `Closes #2`
 - [ ] PR dibuat dengan template; CI Lint dan Test hijau
@@ -1029,3 +1124,4 @@ Kalau Step 1–4 sudah selesai, bilang **"lanjut step 5"**. Bagian ini akan diis
 - 2026-11-08: plan dibuat (Step 1–4 lengkap, Step 5–6 masih berupa judul)
 - 2026-11-08: logger ditambah level (`LOG_LEVEL`), field `service`/`env`/`version`, dan API `Payload` / `SDC`
 - 2026-11-08: logger mengambil 5 ide: SDC hanya string, `x_request_id` di level teratas, key `timestamp`/`message`, pretty writer, error code ke SDC (rencana di #3)
+- 2026-11-21: Step 4b ditambahkan: Postgres service container di CI dan `TEST_DATABASE_URL`, plus pengaman `CI=true` supaya test DB gagal (bukan SKIP) kalau setup CI salah
