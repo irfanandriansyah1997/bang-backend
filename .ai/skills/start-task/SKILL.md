@@ -20,6 +20,7 @@ The developer is **new to Go** (strong React/TypeScript background) and wants to
 - Code in the plan file must be the exact code you compiled and tested in the scratch module. Copy it from the scratch files rather than retyping it.
 - If a plan file for this issue already exists, update it instead of creating a second one.
 - Commit the plan file together with the user's work on the feature branch (`docs(<feature>): add plan for #N`) only when the user commits, and include it in the commit plan that `/atomic-conventional-commits` proposes.
+- **Stacked PRs (one step = one PR):** when the user wants each step as its own PR, commit the plan on its own **plan branch** (`docs/<N>-<slug>-plan`) and open it as the first PR. The step branches are then built on top of it, not on `main` (see [One step = one PR](#one-step--one-pr-stacked-prs)).
 
 ### Teaching rules (always)
 
@@ -79,7 +80,7 @@ Write it to the plan file using this structure:
 **Goal:** <one or two sentences, plain language>
 **Depends on:** #X (done ✅ / not done ⚠️)
 **Already done in the repo:** <criteria that already pass, or "nothing yet">
-**Before you start:** <tools to install/start, e.g. Docker; `git switch -c feat/<N>-<slug>` from an up-to-date main>
+**Before you start:** <tools to install/start, e.g. Docker; `git switch -c feat/<N>-<slug>` from an up-to-date main. For a stacked plan, build on top of the plan branch instead and install `gh stack`>
 
 ## Progress
 - [ ] Step 1: <title>
@@ -148,6 +149,29 @@ Guidelines for steps and source code:
 - Explain new Go concepts (interfaces, pointers, `context`, error returns, `defer`, struct tags) the first time they appear in this brief.
 - Only include DoD items that apply (no OpenAPI item for a tooling task).
 - Long tasks: write the first 3–5 steps in full, list the rest as titles in Progress and as a short "Next batch" section, and offer to continue. When the user says continue, fill those steps into the **same** plan file.
+
+#### One step = one PR (stacked PRs)
+
+When the user wants each step as its own PR, structure the plan like this:
+
+- Add a **"Cara kerja"** section near the top (in the user's language) that explains the stack, the setup, the per-step loop, and how review and merge work.
+- Add a **PR block** under every step: the branch (`feat/<N>-<k>-<slug>`), the **base PR** (the branch below it), the commit plan, the PR title, and the body (`Refs #N`; only the last step says `Closes #N`).
+- Build the branches **on top of each other**: the first step on top of the plan branch (`docs/<N>-<slug>-plan`, whose PR is the bottom of the stack), the next step on top of the previous one. Each PR's base is the branch below, so a reviewer only sees that step's diff.
+- Use `gh stack`, the official GitHub CLI extension (`gh extension install github/gh-stack`; needs `gh` 2.0+ and Git 2.36+):
+
+  | Need | Command |
+  |---|---|
+  | Start the stack with existing branches | `gh stack init <plan-branch> <step-1-branch>` |
+  | Next step's branch, on top, after committing the current step | `gh stack add <branch>` |
+  | See or move around the stack | `gh stack view`, `gh stack up`/`down`/`top`/`bottom`/`switch` |
+  | Push every branch | `gh stack push` |
+  | Open the PRs and link them as a Stack (drafts unless `--open`) | `gh stack submit` |
+  | After a fix on a lower step | `gh stack rebase --upstack`, then `gh stack push` |
+  | After a lower PR is merged | `gh stack sync` |
+  | Merge bottom-up in one operation | `gh stack merge` |
+
+- Every step must pass `make check` **on its own**, with the steps below it applied. Verify this before writing the plan: apply the files of steps 1..k to a clean copy and run `make check` for each k.
+- Without the extension the same stack works with plain git: `git switch -c <branch>` from the previous branch, and `gh pr create --base <previous-branch>`.
 
 ### 5. Offer to update the issue and board
 

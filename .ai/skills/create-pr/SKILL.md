@@ -49,7 +49,7 @@ Reference example: PR #19 (`feat(setup): init go module, entry point, hooks, and
 ```bash
 git status --short                       # must be clean; if not, commit first (/atomic-conventional-commits)
 git rev-parse --abbrev-ref HEAD          # must NOT be main
-git fetch -q && git log --oneline origin/main..HEAD   # must have commits
+git fetch -q && git log --oneline origin/main..HEAD   # must have commits (stacked PR: use <base>..HEAD, see Stacked PRs)
 git rev-parse --abbrev-ref @{u} 2>/dev/null   # upstream; if it is origin/main, push with: git push -u origin <branch>
 gh pr list --head "$(git branch --show-current)" --state open   # existing PR? then edit it instead of creating
 ```
@@ -63,6 +63,8 @@ git log --format='%h %s%n%b' origin/main..HEAD   # subjects, bodies, Closes/Refs
 git diff --stat origin/main...HEAD
 git diff origin/main...HEAD                      # read it; don't summarize from file names only
 ```
+
+For a stacked PR, replace `origin/main` with the base branch (see [Stacked PRs](#stacked-prs-gh-stack)).
 
 - **Related task**: see [Linking the PR to its task](#linking-the-pr-to-its-task).
 - **Layers**: map changed paths to the "Changes by layer" table (`internal/domain`, `internal/usecase`, `internal/delivery/http`, `internal/repository/postgres`, `internal/infrastructure`, `cmd/api`). For changes outside these layers (tooling, CI, docs, AI config), add a **Tooling** table right below, as in PR #19.
@@ -108,6 +110,18 @@ gh project item-edit --id "$ITEM" --project-id "$(gh project view 1 --owner irfa
 ```
 
 **When there is no task** (the user says none): write `- None` under **Related issue**, still assign `@me`, and skip labels and the board.
+
+### Stacked PRs (`gh stack`)
+
+A branch can be one layer of a **stack**: a plan that says "one step = one PR" builds each branch on top of the previous one (see the `start-task` skill). Then:
+
+- **Base:** the PR's base is the branch **below** this one, not `main`. Read it from the plan's `Base PR` line, from `gh stack view`, or from an existing PR (`gh pr view --json baseRefName`). The bottom layer is usually the plan branch, whose own PR targets `main`.
+- **Diff and commits:** compare with that base, not `origin/main`: `git log --oneline <base>..HEAD` and `git diff <base>...HEAD`. Otherwise the summary describes every layer below. In the safety checks, `git log origin/main..HEAD` also lists the commits of every layer below, which is expected for a stacked PR; use `<base>..HEAD` to check that this layer has commits.
+- **Create or edit:** `gh pr create --base <base> --head <branch> ...` with the same title, body, assignee, and labels as usual. If `gh stack submit` already created the PR (as a draft with an automatic title), `gh pr edit` it, and run `gh pr ready <PR>` when it should be ready for review.
+- **Link the PRs as one Stack:** once the PRs exist, `gh stack submit` (or `gh stack link <branch> <branch> ...`, bottom to top) so GitHub shows them as a stack.
+- **Related issue:** every layer says `Refs #N`; only the **top** PR says `Closes #N`. In the Summary, say which layer this is ("step 3 of 8") and that it is stacked on the branch below.
+- **Board:** move the issue to `In review` when the first implementation PR of the stack is opened, not for every layer and not for the plan PR.
+- **After a fix on a lower layer:** `gh stack rebase --upstack`, then `gh stack push`. **After a lower PR is merged:** `gh stack sync`. Merge from the bottom up, or with `gh stack merge`.
 
 ### 3. Verify locally
 
