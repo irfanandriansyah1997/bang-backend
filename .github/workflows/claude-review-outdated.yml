@@ -23,15 +23,38 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       REPO: ${{ github.repository }}
       SHA: ${{ github.event.pull_request.head.sha }}
+      BASE_SHA: ${{ github.event.pull_request.base.sha }}
       STATUS_CONTEXT: Claude Review # must match claude-review.yml and the ruleset
     steps:
-      - name: Set the status to pending
+      - name: Is this a docs-only change?
+        id: docs
+        run: |
+          # Only changes to docs/**/*.md skip the code review. Anything else (code, workflows,
+          # config, the AI skills in .ai/ and .claude/) is reviewed as before.
+          files=$(gh api "repos/$REPO/compare/$BASE_SHA...$SHA" --jq '.files[].filename' 2>/dev/null || true)
+          if [ -n "$files" ] && [ -z "$(echo "$files" | grep -vE '^docs/.+\.md$' || true)" ]; then
+            echo "docs_only=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "docs_only=false" >> "$GITHUB_OUTPUT"
+          fi
+          echo "docs only: $(cat "$GITHUB_OUTPUT" | grep docs_only)"
+
+      - name: Set the status
+        env:
+          DOCS_ONLY: ${{ steps.docs.outputs.docs_only }}
         run: |
           # Never overwrite a status that already exists for this commit (a review may already be running)
           existing=$(gh api "repos/$REPO/commits/$SHA/statuses" \
             --jq '[.[] | select(.context == env.STATUS_CONTEXT)] | length')
           if [ "$existing" != "0" ]; then
             echo "$STATUS_CONTEXT already has a status on ${SHA:0:7}; leaving it as it is"
+            exit 0
+          fi
+          if [ "$DOCS_ONLY" = "true" ]; then
+            gh api "repos/$REPO/statuses/$SHA" \
+              -f state=success -f context="$STATUS_CONTEXT" \
+              -f description="Docs only (docs/**/*.md): no code review needed" >/dev/null
+            echo "$STATUS_CONTEXT on ${SHA:0:7}: success (docs only)"
             exit 0
           fi
           gh api "repos/$REPO/statuses/$SHA" \
