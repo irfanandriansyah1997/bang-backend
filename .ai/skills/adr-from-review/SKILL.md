@@ -1,6 +1,6 @@
 ---
 name: adr-from-review
-description: Turn the minor findings a reviewer skipped with /skip-suggestion on a PR into a proposed ADR file in docs/adr/, so future reviews do not raise them again. Use when the user asks to "buat ADR dari review", "adr from review", or after a check-pr run where a minor was skipped. Writes only docs/adr/NNNN-*.md with status proposed, never code, and never blockers or majors.
+description: Turn the minor findings a reviewer skipped with /skip-suggestion on a PR into a proposed ADR file in docs/adr/, so future reviews do not raise them again. Use when the user asks to "buat ADR dari review", "adr from review", or after a check-pr run where a minor was skipped. check-pr --ci follows its CI mode (write the file only; the workflow commits it). Writes only docs/adr/NNNN-*.md with status proposed, never code, and never blockers or majors.
 model: sonnet
 ---
 
@@ -16,7 +16,19 @@ Turn a decision a reviewer already made (a minor finding skipped with `/skip-sug
 - Never put a secret, token, password, or personal data into the ADR.
 - Never push, merge, or open a PR without the user's explicit OK.
 
-## 0. Check the branch
+## Modes
+
+| | Local mode (`/adr-from-review <PR>`) | CI mode (from `check-pr --ci`) |
+|---|---|---|
+| Who runs it | The user, on their machine | The `check-pr` review in `.github/workflows/claude-review.yml` |
+| Branch check (step 0) | Yes | Skip: the runner's checkout is already the PR head |
+| Find skipped minors (step 1) | Yes | Skip: `check-pr` step 1b already found them |
+| Existing ADR check (step 1b) | Yes | **Yes**, with `Glob docs/adr/*.md` + `Read` (the checkout is the PR head) |
+| Path rule (step 2) | Yes | Skip: the workflow's "Commit ADR" step checks it |
+| Number, write (steps 3–4) | Yes | **Yes** |
+| Commit (step 5) | You commit, after the user's OK | **Never.** Only write the file. The workflow validates it, commits it as `github-actions[bot]`, and pushes it |
+
+## 0. Check the branch (local mode)
 
 The ADR is committed to the PR's own branch, so the PR head must be checked out here:
 
@@ -27,7 +39,7 @@ git branch --show-current
 
 If the two names differ, stop and tell the user which branch to switch to.
 
-## 1. Find the skipped minors
+## 1. Find the skipped minors (local mode)
 
 ```bash
 R=irfanandriansyah1997/bang-backend
@@ -62,7 +74,7 @@ For each ADR, compare its **Area**, **Applies to**, and **Decision** with the sk
 
 When two ADRs are close but not the same, write the new one and link to the old one in its Context, so the reader sees both.
 
-## 2. Check the path rule before writing
+## 2. Check the path rule before writing (local mode)
 
 Run from the PR branch, and stop if anything fails:
 
@@ -82,7 +94,7 @@ git ls-tree --name-only origin/main docs/adr/ | sed 's|docs/adr/||' | grep -E '^
 git ls-tree --name-only HEAD docs/adr/ | sed 's|docs/adr/||' | grep -E '^[0-9]{4}-'
 ```
 
-Take the highest number in both lists and add 1. Never reuse a number.
+Take the highest number in both lists and add 1. Never reuse a number. When one run writes several ADRs, give each the next number (0004, 0005, ...).
 
 ## 4. Write the ADR
 
@@ -93,14 +105,30 @@ Copy `0000-template.md` and fill every section:
 - **Source:** `PR #<number>, review thread <link to the thread>`
 - **Area:** the folder or layer, for example `delivery/http`
 - **Applies to:** one sentence: what the decision covers.
+- **Reason source:** `reviewer` or `AI` (see [The reason](#the-reason)).
 - **Context:** describe the skipped finding in plain words, so a developer new to Go can follow it. Do not paste the code.
-- **Decision:** a rule a reviewer can check, in one or two sentences.
+- **Decision:** a rule a reviewer can check, in one or two sentences, followed by the reason.
 - **Consequences:** what gets easier, what risk remains, and what the reviewer must still check.
 - **Scope and limits:** keep the template's text. It says blockers and majors are not covered.
 
-Name the file `NNNN-short-title.md` (lowercase, dashes).
+Name the file `NNNN-short-title.md` (lowercase letters, digits, and dashes only).
 
-## 5. Check and commit
+### The reason
+
+The reason comes from the reply in which the person wrote `/skip-suggestion`:
+
+1. Take the lines **above** the `/skip-suggestion` line.
+2. Drop empty lines and lines that start with `>` (quoted text).
+3. What is left is the reviewer's reason.
+
+| What is left | Reason source | What to write under **Decision** |
+|---|---|---|
+| Some text | `reviewer` | `Reason given by the reviewer (@<login>):` and the text, as a quote. Fix only obvious typos; do not change its meaning. |
+| Nothing (the reply was only the token) | `AI` | `Reason written by the AI (the reviewer gave none):` and one or two sentences on why the finding is acceptable for now: the risk is small, and what would make it worth fixing later. Do not invent facts about the team's plans. |
+
+If the reason contains a secret, token, or personal data, leave that part out and write `(removed: sensitive data)`.
+
+## 5. Check and commit (local mode)
 
 ```bash
 git add docs/adr/NNNN-short-title.md
@@ -110,7 +138,9 @@ git commit -m "docs(adr): propose NNNN <short title>" -m "Refs: #<issue>"
 
 Show the user the file and the commit message. Push only after the user says yes.
 
-## 6. Hand off
+**CI mode:** do not run `git add` or `git commit` (the tools are blocked anyway). Write the file and stop. The workflow step *Commit ADR* checks that only new `docs/adr/NNNN-*.md` files with `Status: proposed` were added, then commits and pushes them.
+
+## 6. Hand off (local mode)
 
 Tell the user:
 - the file path and the decision, in one line
