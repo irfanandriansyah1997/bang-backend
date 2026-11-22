@@ -12,7 +12,7 @@
   ```bash
   gh extension install github/gh-stack
   ```
-- Docker dan database hanya dibutuhkan untuk tes terakhir di Step 8. Library baru hanya satu: `validator` di Step 7.
+- Docker dan database hanya dibutuhkan untuk tes terakhir di Step 8. Dua library baru: `github.com/google/uuid` di Step 4 dan `validator` di Step 7.
 
 Semua kode di langkah 1–8 sudah di-compile dan di-test di salinan project: `go vet` bersih, `golangci-lint` `0 issues`, test lolos dengan `-race` (termasuk test yang menyalakan server dan memanggilnya lewat HTTP), coverage `internal/delivery/http` 96% dan `internal/domain` 100%. Server sungguhan juga sudah dicoba dengan `curl` dan Ctrl+C.
 
@@ -89,9 +89,10 @@ internal/delivery/http/response_test.go         NEW   (Step 2)
 internal/delivery/http/errors_test.go           NEW   (Step 2)
 internal/delivery/http/cursor.go                NEW   (Step 3)
 internal/delivery/http/cursor_test.go           NEW   (Step 3)
-internal/delivery/http/request_id.go            NEW   (Step 4)
+internal/delivery/http/request_id.go            NEW   (Step 4, pakai UUID v7)
 internal/delivery/http/client.go                NEW   (Step 4)
 internal/delivery/http/request_id_test.go       NEW   (Step 4)
+go.mod, go.sum                                  EDIT  (Step 4, `go get github.com/google/uuid`)
 internal/delivery/http/logging.go               NEW   (Step 5)
 internal/delivery/http/recover.go               NEW   (Step 5)
 internal/delivery/http/logging_test.go          NEW   (Step 5)
@@ -869,7 +870,14 @@ Hasilnya `TestCursor_RoundTrip`, `TestCursor_IsOpaque`, `TestDecodeCursor_Invali
 
 ### Step 4: Middleware `X-Request-ID` dan `X-Client`
 
-**Why:** Saat client melapor "tombol Selesai error jam 10", kamu perlu mencari **satu** `request_id` di Kibana dan melihat semua baris log request itu. Web dan Android mengirim `X-Request-ID`; backend memakainya (atau membuat yang baru), menyimpannya di `context`, dan mengirimnya balik di header respons. `X-Client` (`web` atau `android`) menjadi field yang bisa difilter.
+**Why:** Saat client melapor "tombol Selesai error jam 10", kamu perlu mencari **satu** `request_id` di Kibana dan melihat semua baris log request itu. Web dan Android mengirim `X-Request-ID`; backend memakainya (atau membuat yang baru), menyimpannya di `context`, dan mengirimnya balik di header respons. Id yang baru dibuat memakai **UUID v7** supaya formatnya sama dengan `crypto.randomUUID()` di web, dan urut menurut waktu sehingga mudah dicari di Kibana. `X-Client` (`web` atau `android`) menjadi field yang bisa difilter.
+
+**Perintah (library baru):**
+```bash
+go get github.com/google/uuid
+go mod tidy
+```
+`go get` mencatat `github.com/google/uuid` di `go.mod` dan `go.sum`. Library ini memberi `uuid.NewV7()`. Di Go standard library belum ada UUID, jadi library ini memang diperlukan.
 
 **File:** `internal/delivery/http/request_id.go` (NEW)
 
@@ -879,6 +887,8 @@ package http
 import (
 	"crypto/rand"
 	"net/http"
+
+	"github.com/google/uuid"
 
 	"github.com/irfanandriansyah1997/bang-backend/internal/infrastructure/logger"
 )
@@ -896,7 +906,7 @@ func RequestID(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		id := r.Header.Get(headerRequestID)
 		if !validRequestID(id) {
-			id = rand.Text() // 26 random letters and digits
+			id = newRequestID()
 		}
 
 		w.Header().Set(headerRequestID, id)
@@ -904,6 +914,18 @@ func RequestID(next http.Handler) http.Handler {
 		// A request is read-only. To add something, make a copy that carries the new context.
 		next.ServeHTTP(w, r.WithContext(logger.WithRequestID(r.Context(), id)))
 	})
+}
+
+// newRequestID returns a UUID version 7: the first 48 bits are the time in milliseconds,
+// so ids made later sort later (useful in Kibana), and the rest is random from crypto/rand.
+// If that random source ever fails, fall back to rand.Text, which is also cryptographically random.
+func newRequestID() string {
+	id, err := uuid.NewV7()
+	if err != nil {
+		return rand.Text()
+	}
+
+	return id.String()
 }
 
 // validRequestID accepts letters, digits, "-" and "_" up to 64 characters.
@@ -959,7 +981,7 @@ func Client(next http.Handler) http.Handler {
 
 **What this does:**
 1. Middleware adalah fungsi yang menerima handler dan mengembalikan handler baru yang membungkusnya: melakukan sesuatu sebelum atau sesudah `next.ServeHTTP`.
-2. `RequestID` memakai header dari client **hanya kalau valid** (huruf, angka, `-`, `_`, maksimal 64). Nilai itu masuk ke log dan header respons, jadi nilai aneh (spasi, `<script>`, terlalu panjang) diganti dengan id baru dari `rand.Text()`.
+2. `RequestID` memakai header dari client **hanya kalau valid** (huruf, angka, `-`, `_`, maksimal 64). Nilai itu masuk ke log dan header respons, jadi nilai aneh (spasi, `<script>`, terlalu panjang) diganti dengan id baru berupa **UUID v7** (lihat "Kenapa UUID v7" di bawah).
 3. `logger.WithRequestID` menaruh id di `context`. Setelah itu setiap `log.Info(ctx, ...)` otomatis membawa `x_request_id`, tanpa handler perlu melakukan apa-apa.
 4. `Client` menaruh `client` di SDC (field log yang di-index). Nilai selain `web` atau `android` menjadi `unknown`.
 5. `r.WithContext(ctx)` membuat **salinan** request. Request di Go bersifat read-only: untuk menambah sesuatu, kamu membuat salinan baru yang membawa context baru.
@@ -971,7 +993,7 @@ func Client(next http.Handler) http.Handler {
 | `next.ServeHTTP(w, r)` | Meneruskan ke langkah berikutnya | `next()` |
 | `context.Context` | Wadah nilai dan sinyal batal yang dibawa sepanjang request | `req.locals` / AsyncLocalStorage |
 | `r.WithContext(ctx)` | Salinan request dengan context baru | `{ ...req, ctx }` (immutable, bukan mutasi) |
-| `rand.Text()` | String acak yang aman secara kriptografis (`crypto/rand`) | `crypto.randomUUID()` |
+| `uuid.NewV7()` | UUID versi 7: 48 bit waktu (milidetik) di depan, sisanya acak dari `crypto/rand` | `crypto.randomUUID()`, tapi urut menurut waktu |
 | `for _, c := range id` | Loop per karakter (`rune`) | `for (const c of id)` |
 
 **File:** `internal/delivery/http/request_id_test.go` (NEW; ini test yang diminta issue)
@@ -984,6 +1006,9 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/google/uuid"
 
 	"github.com/irfanandriansyah1997/bang-backend/internal/infrastructure/logger"
 )
@@ -1024,6 +1049,15 @@ func TestRequestID_CreatesOneWhenMissing(t *testing.T) {
 
 	if seen == "" {
 		t.Fatal("no id was created")
+	}
+
+	parsed, err := uuid.Parse(seen)
+	if err != nil {
+		t.Fatalf("created id %q is not a UUID: %v", seen, err)
+	}
+
+	if parsed.Version() != 7 {
+		t.Errorf("version = %d, want 7 (time-ordered)", parsed.Version())
 	}
 
 	if got := rec.Header().Get("X-Request-ID"); got != seen {
@@ -1096,15 +1130,28 @@ func TestClient_GoesToTheLogLines(t *testing.T) {
 		})
 	}
 }
+
+func TestNewRequestID_LaterIdsSortLater(t *testing.T) {
+	first := newRequestID()
+	time.Sleep(2 * time.Millisecond) // UUID v7 has millisecond precision
+	second := newRequestID()
+
+	if first >= second {
+		t.Errorf("ids are not time-ordered: %q then %q", first, second)
+	}
+}
 ```
 
 **Check:**
 ```bash
 go test -v -run 'RequestID|Client' ./internal/delivery/http
 ```
-Hasilnya `TestRequestID_KeepsTheIDFromTheClient`, `TestRequestID_CreatesOneWhenMissing`, `TestRequestID_ReplacesValuesWeDoNotTrust` (4 sub-test), dan `TestClient_GoesToTheLogLines` (4 sub-test) semuanya `PASS`.
+Hasilnya `TestRequestID_KeepsTheIDFromTheClient`, `TestRequestID_CreatesOneWhenMissing` (mengecek bahwa id yang dibuat adalah UUID versi 7), `TestRequestID_ReplacesValuesWeDoNotTrust` (4 sub-test), `TestNewRequestID_LaterIdsSortLater` (id yang dibuat belakangan lebih besar), dan `TestClient_GoesToTheLogLines` (4 sub-test) semuanya `PASS`.
+
+**Kenapa UUID v7 dan bukan `rand.Text()`:** `rand.Text()` juga aman secara kriptografis, tapi hasilnya acak penuh sehingga tidak bisa diurutkan menurut waktu, dan formatnya bukan UUID seperti yang dipakai client. UUID v7 memberi keduanya. Kalau `uuid.NewV7()` gagal (sumber acak sistem bermasalah, hampir tidak pernah terjadi), kode jatuh ke `rand.Text()` supaya request tetap berjalan.
 
 **Common mistakes:**
+- **`no required module provides package github.com/google/uuid`.** Jalankan `go get github.com/google/uuid` lalu `go mod tidy`.
 - **Mengubah `r` langsung** (misalnya `r.Header.Set(...)` untuk menyimpan id). Itu mengubah request milik semua orang. Simpan di `context` lewat `WithContext`.
 - **Memakai nilai header apa adanya.** Header datang dari luar. Tanpa validasi, nilai aneh bisa masuk ke log (log injection) dan ke header respons.
 - **Test header dengan newline memakai `Header.Set`** akan menolak nilainya. Itu sebabnya test menulis `req.Header["X-Request-Id"] = ...` langsung (nama key di map header selalu berbentuk kanonik: `X-Request-Id`).
@@ -2743,5 +2790,6 @@ Per step: centang saat PR-nya di-merge. Issue #3 tertutup oleh PR Step 8.
 
 ## Changelog
 - 2026-11-22: plan dibuat (Step 1–5 lengkap dengan kode)
+- 2026-11-22: Step 4 request id diganti dari `rand.Text()` ke **UUID v7** (`github.com/google/uuid`), dengan test urutan waktu dan versi 7. Step 1 dan 2 tidak berubah
 - 2026-11-22: Step 6 (CORS), Step 7 (decode + validasi), dan Step 8 (router, server, `main.go`) ditambahkan lengkap dengan kode. Plan disusun ulang menjadi **1 step = 1 PR**: tiap step punya branch, rencana commit, dan judul PR; hanya PR Step 8 yang memakai `Closes #3`
 - 2026-11-22: alur kerja diganti dari "tunggu merge sebelum step berikutnya" menjadi **stacked PR dengan `gh stack`**: branch step dibuat di atas branch plan dan saling menumpuk, base tiap PR adalah branch di bawahnya, dan merge dari bawah ke atas
