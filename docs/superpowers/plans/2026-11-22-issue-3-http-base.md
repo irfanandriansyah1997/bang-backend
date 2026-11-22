@@ -1,5 +1,5 @@
 # Plan: Issue #3: HTTP base: router, middleware, error format, cursor pagination
-> Issue: https://github.com/irfanandriansyah1997/bang-backend/issues/3 · Plan branch: `docs/3-http-plan` (setiap step punya branch sendiri) · Last updated: 2026-11-22
+> Issue: https://github.com/irfanandriansyah1997/bang-backend/issues/3 · Plan branch: `docs/3-http-plan` (lapisan paling bawah dari stack; setiap step punya branch sendiri di atasnya) · Last updated: 2026-11-22
 
 **Goal:** Siapkan fondasi layer HTTP supaya semua endpoint nanti berperilaku sama: satu format error, satu cara menulis JSON, satu format list (cursor), dan satu `request_id` di setiap baris log. Setelah task ini, endpoint baru tinggal menulis handler tipis.
 
@@ -7,40 +7,67 @@
 **Already done in the repo:** `logger.WithRequestID` dan `logger.WithSDC` (dari #2) yang akan dipakai middleware. Selebihnya belum ada: `internal/delivery/http/` baru berisi `README.md`.
 
 **Before you start:**
-- File plan ini ada di branch `docs/3-http-plan` (dibuat dari `main` yang terbaru dan sudah di-commit). Baca dari sana sampai PR plan di-merge:
+- File plan ini ada di branch `docs/3-http-plan` (PR #36). Semua branch step dibuat **di atas** branch ini, bukan dari `main`, sebagai stacked PR (lihat "Cara kerja").
+- Pasang ekstensi `gh stack` sekali saja (ekstensi resmi GitHub, butuh `gh` 2.0+ dan Git 2.36+):
   ```bash
-  git switch docs/3-http-plan
+  gh extension install github/gh-stack
   ```
 - Docker dan database hanya dibutuhkan untuk tes terakhir di Step 8. Library baru hanya satu: `validator` di Step 7.
 
 Semua kode di langkah 1–8 sudah di-compile dan di-test di salinan project: `go vet` bersih, `golangci-lint` `0 issues`, test lolos dengan `-race` (termasuk test yang menyalakan server dan memanggilnya lewat HTTP), coverage `internal/delivery/http` 96% dan `internal/domain` 100%. Server sungguhan juga sudah dicoba dengan `curl` dan Ctrl+C.
 
-## Cara kerja: 1 step = 1 PR
+## Cara kerja: 1 step = 1 PR, ditumpuk (stacked PR)
 
-Setiap step di bawah ini adalah satu PR kecil yang bisa di-review dan di-merge sendiri. PR kecil lebih mudah dicek (oleh Claude maupun kamu), mudah di-revert kalau ada yang salah, dan `main` selalu hijau.
+Setiap step adalah satu PR kecil yang bisa di-review sendiri, dan semuanya **ditumpuk**: branch Step 1 dibuat di atas branch plan, branch Step 2 di atas Step 1, dan seterusnya. Setiap PR memakai branch di bawahnya sebagai *base*, jadi reviewer (kamu maupun Claude) hanya melihat perubahan step itu, bukan semua step sebelumnya.
 
-Ulangi untuk setiap step:
-
-```bash
-git switch main && git pull            # 1. mulai dari main terbaru (setelah PR step sebelumnya di-merge)
-git switch -c feat/3-<N>-<slug>        # 2. nama branch ada di bagian "PR" tiap step
-# ketik kode step itu, lalu jalankan bagian "Check"
-make check                             # 3. harus lolos sebelum commit
+```
+feat/3-8-router-server        → PR (base: feat/3-7-decode-validate)   ← atas
+...
+feat/3-2-responder            → PR (base: feat/3-1-domain-errors)
+feat/3-1-domain-errors        → PR (base: docs/3-http-plan)
+docs/3-http-plan              → PR #36 (base: main)                   ← bawah
+main
 ```
 
-Lalu:
-1. `/atomic-conventional-commits` untuk commit (rencana commit ada di bagian "PR" tiap step), lalu `git push`.
-2. `/create-pr` untuk membuka PR (judul dan body ada di bagian "PR").
-3. Setelah CI hijau, comment `@claude-code-review`. Perbaiki temuan yang menurutmu perlu, lalu merge.
+Keuntungannya dibanding menunggu merge satu per satu: kamu bisa lanjut ke step berikutnya tanpa menunggu review, dan tiap PR tetap kecil. `gh stack` mengurus bagian yang membosankan: membuat branch di atas branch sebelumnya, merebase semuanya kalau ada yang berubah, dan mengatur base tiap PR.
+
+**Setup (sekali, setelah ekstensi terpasang):**
+```bash
+git switch docs/3-http-plan && git pull
+gh stack init docs/3-http-plan feat/3-1-domain-errors   # menyusun stack; branch yang sudah ada langsung dipakai
+gh stack view                                            # lihat susunannya
+```
+Kalau `feat/3-1-domain-errors` belum ada, perintah di atas membuatnya di atas branch plan. Branch plan menjadi lapisan paling bawah, dan PR #36 yang sudah ada jadi PR pertama di stack.
+
+**Ulangi untuk setiap step** (kamu berada di branch teratas stack):
+```bash
+# ketik kode step itu, lalu jalankan bagian "Check"
+make check                                   # harus lolos sebelum commit
+/atomic-conventional-commits                 # commit (rencana commit ada di bagian "PR" tiap step)
+gh stack add feat/3-<N+1>-<slug>             # branch untuk step berikutnya, di atas yang sekarang
+```
+Perintah `gh stack add` hanya dijalankan **setelah** step itu di-commit, dan harus dari branch teratas. Pindah antar lapisan dengan `gh stack up`, `gh stack down`, `gh stack top`, atau `gh stack switch`.
+
+**Mengirim ke GitHub** (setelah beberapa step selesai, atau semuanya):
+```bash
+gh stack push                                # push semua branch sekaligus
+gh stack submit                              # satu PR per branch, base = branch di bawahnya, ditautkan sebagai Stack
+```
+`gh stack submit` membuka editor di terminal untuk judul dan deskripsi tiap PR; pakai judul dari bagian "PR" tiap step. PR dibuat sebagai draft kecuali kamu memilih ready di editor atau memakai `--open`. Untuk menulis ulang body sesuai template, jalankan `/create-pr` di tiap lapisan (ia mengedit PR yang sudah ada).
+
+**Review dan merge:**
+1. Setelah CI hijau, comment `@claude-code-review` di tiap PR. Review hanya mencakup perubahan lapisan itu.
+2. Kalau ada temuan di Step 3, pindah ke branchnya (`gh stack switch`), commit perbaikannya, lalu `gh stack rebase --upstack` supaya perbaikan itu turun ke step 4 sampai 8, dan `gh stack push`.
+3. Merge dari bawah: PR #36 dulu, lalu satu per satu ke atas, atau sekaligus dengan `gh stack merge` (memilih sampai PR mana). Setelah ada yang di-merge, jalankan `gh stack sync`: ia merebase sisa stack ke `main` dan mengatur ulang base PR.
 
 Aturan:
-- Mulai step berikutnya **setelah PR step sebelumnya di-merge**, karena step memakai kode step sebelumnya (Step 2 memakai error dari Step 1, dan seterusnya).
+- Step berikutnya memakai kode step sebelumnya (Step 2 memakai error dari Step 1, dan seterusnya), jadi urutan lapisan tidak boleh dibalik.
 - Semua PR memakai `Refs #3`. Hanya PR Step 8 memakai `Closes #3`.
 - Issue #3 tetap `In progress` sampai Step 8 di-merge.
-- File plan ini sendiri di-merge lewat PR docs lebih dulu (branch `docs/3-http-plan`), supaya semua branch step bisa membacanya dari `main`.
+- Kalau `gh stack` bermasalah, tumpukan ini tetap bisa dikerjakan tanpa ekstensi: buat branch dengan `git switch -c` dari branch sebelumnya, dan atur base PR dengan `gh pr create --base <branch-di-bawahnya>`.
 
 ## Progress
-Centang kotak setelah PR step itu **di-merge** ke `main`.
+Centang kotak setelah PR step itu **di-merge** ke `main`. Branch di bawah ini membentuk stack dari bawah ke atas, di atas `docs/3-http-plan`.
 - [ ] Step 1: Error bisnis di `domain` · branch `feat/3-1-domain-errors`
 - [ ] Step 2: `Responder`: satu tempat menulis JSON dan error, plus mapper domain error → HTTP · `feat/3-2-responder`
 - [ ] Step 3: Helper cursor pagination · `feat/3-3-cursor-pagination`
@@ -199,7 +226,8 @@ Hasilnya `--- PASS: TestBusinessErrors_SurviveWrapping`, `--- PASS: TestValidati
 - **Lupa `&` saat memakai `errors.As`.** `errors.As(err, ve)` memberi `second argument to errors.As must be a non-nil pointer`. Tulis `errors.As(err, &ve)`.
 
 **PR (step ini):**
-- Branch: `feat/3-1-domain-errors`
+- Branch: `feat/3-1-domain-errors` (dibuat di atas `docs/3-http-plan`)
+- Base PR: `docs/3-http-plan` (PR plan; stack mulai dari sini)
 - Commit:
   - `feat(http): add domain business errors` (`errors.go`, `errors_test.go`)
   - Footer commit: `Refs: #3`
@@ -521,7 +549,8 @@ Hasilnya `--- PASS: TestResponder_JSON`, `TestResponder_JSON_ValueThatCannotBeEn
 - **Menulis `w.WriteHeader(...)` lalu baru `json.Marshal`.** Kalau Marshal gagal, status sudah terkirim dan tidak bisa diubah. Itu sebabnya `JSON` meng-encode lebih dulu.
 
 **PR (step ini):**
-- Branch: `feat/3-2-responder`
+- Branch: `feat/3-2-responder` (dibuat di atas `feat/3-1-domain-errors`)
+- Base PR: `feat/3-1-domain-errors` (bukan main: ini stack)
 - Commit:
   - `feat(http): add responder and domain error mapper` (semua file di Step 2)
   - Footer commit: `Refs: #3`
@@ -829,7 +858,8 @@ Hasilnya `TestCursor_RoundTrip`, `TestCursor_IsOpaque`, `TestDecodeCursor_Invali
 - **Memakai `base64.URLEncoding` (dengan `=`)** membuat cursor punya `=` di belakang. Pakai `RawURLEncoding` supaya tidak ada padding.
 
 **PR (step ini):**
-- Branch: `feat/3-3-cursor-pagination`
+- Branch: `feat/3-3-cursor-pagination` (dibuat di atas `feat/3-2-responder`)
+- Base PR: `feat/3-2-responder` (bukan main: ini stack)
 - Commit:
   - `feat(http): add cursor pagination helper` (`cursor.go`, `cursor_test.go`)
   - Footer commit: `Refs: #3`
@@ -1080,7 +1110,8 @@ Hasilnya `TestRequestID_KeepsTheIDFromTheClient`, `TestRequestID_CreatesOneWhenM
 - **Test header dengan newline memakai `Header.Set`** akan menolak nilainya. Itu sebabnya test menulis `req.Header["X-Request-Id"] = ...` langsung (nama key di map header selalu berbentuk kanonik: `X-Request-Id`).
 
 **PR (step ini):**
-- Branch: `feat/3-4-request-id`
+- Branch: `feat/3-4-request-id` (dibuat di atas `feat/3-3-cursor-pagination`)
+- Base PR: `feat/3-3-cursor-pagination` (bukan main: ini stack)
 - Commit:
   - `feat(http): add request id and client middleware` (`request_id.go`, `client.go`, `request_id_test.go`)
   - Footer commit: `Refs: #3`
@@ -1423,7 +1454,8 @@ make check
 - **Linter `errorlint` pada `value == http.ErrAbortHandler`.** Hasil `recover()` bertipe `any`; ubah jadi `error` dulu lalu pakai `errors.Is`, seperti di `recover.go`.
 
 **PR (step ini):**
-- Branch: `feat/3-5-request-log-recover`
+- Branch: `feat/3-5-request-log-recover` (dibuat di atas `feat/3-4-request-id`)
+- Base PR: `feat/3-4-request-id` (bukan main: ini stack)
 - Commit:
   - `feat(http): add request log and panic recovery middleware` (`logging.go`, `recover.go`, dan kedua test)
   - Footer commit: `Refs: #3`
@@ -1639,7 +1671,8 @@ Hasilnya `TestCORS_AllowedOrigin`, `TestCORS_Preflight`, `TestCORS_OptionsWithou
 - **Preflight sampai ke router.** Hasilnya `404` atau `401` pada `OPTIONS`, dan browser menolak request aslinya dengan pesan CORS yang membingungkan. Itu sebabnya CORS ada paling luar.
 
 **PR (step ini):**
-- Branch: `feat/3-6-cors`
+- Branch: `feat/3-6-cors` (dibuat di atas `feat/3-5-request-log-recover`)
+- Base PR: `feat/3-5-request-log-recover` (bukan main: ini stack)
 - Commit:
   - `feat(http): add cors middleware` (`cors.go`, `cors_test.go`)
   - Footer commit: `Refs: #3`
@@ -1929,7 +1962,8 @@ Hasilnya `TestRequestDecoder_Valid`, `TestRequestDecoder_Problems` (11 sub-test)
 - **Pesan memakai nama Go (`Email is required`).** Itu terjadi kalau `RegisterTagNameFunc` tidak dipasang, atau field tidak punya tag `json`.
 
 **PR (step ini):**
-- Branch: `feat/3-7-decode-validate`
+- Branch: `feat/3-7-decode-validate` (dibuat di atas `feat/3-6-cors`)
+- Base PR: `feat/3-6-cors` (bukan main: ini stack)
 - Commit:
   - `feat(http): add json decode and validation helper` (`decode.go`, `decode_test.go`, `go.mod`, `go.sum`)
   - Footer commit: `Refs: #3`
@@ -2672,7 +2706,8 @@ Tekan Ctrl+C di terminal `make run`: muncul log `shutting down` dan proses berhe
 - **Route selalu `unmatched` untuk route yang ada.** Ada middleware di antara `RequestLog` dan router yang membuat salinan request. Periksa urutan di `NewRouter`.
 
 **PR (step ini):**
-- Branch: `feat/3-8-router-server`
+- Branch: `feat/3-8-router-server` (dibuat di atas `feat/3-7-decode-validate`)
+- Base PR: `feat/3-7-decode-validate` (bukan main: ini stack)
 - Commit (3 commit, urut):
   - `feat(http): add router with api prefix and middleware chain` (`router.go`, `router_test.go`)
   - `feat(http): serve the api from main with graceful shutdown` (`cmd/api/main.go`, `cmd/api/main_test.go`)
@@ -2709,3 +2744,4 @@ Per step: centang saat PR-nya di-merge. Issue #3 tertutup oleh PR Step 8.
 ## Changelog
 - 2026-11-22: plan dibuat (Step 1–5 lengkap dengan kode)
 - 2026-11-22: Step 6 (CORS), Step 7 (decode + validasi), dan Step 8 (router, server, `main.go`) ditambahkan lengkap dengan kode. Plan disusun ulang menjadi **1 step = 1 PR**: tiap step punya branch, rencana commit, dan judul PR; hanya PR Step 8 yang memakai `Closes #3`
+- 2026-11-22: alur kerja diganti dari "tunggu merge sebelum step berikutnya" menjadi **stacked PR dengan `gh stack`**: branch step dibuat di atas branch plan dan saling menumpuk, base tiap PR adalah branch di bawahnya, dan merge dari bawah ke atas
