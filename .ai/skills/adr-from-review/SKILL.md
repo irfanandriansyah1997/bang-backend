@@ -16,6 +16,17 @@ Turn a decision a reviewer already made (a minor finding skipped with `/skip-sug
 - Never put a secret, token, password, or personal data into the ADR.
 - Never push, merge, or open a PR without the user's explicit OK.
 
+## 0. Check the branch
+
+The ADR is committed to the PR's own branch, so the PR head must be checked out here:
+
+```bash
+gh pr view <PR> -R irfanandriansyah1997/bang-backend --json headRefName --jq .headRefName
+git branch --show-current
+```
+
+If the two names differ, stop and tell the user which branch to switch to.
+
 ## 1. Find the skipped minors
 
 ```bash
@@ -86,3 +97,4 @@ Tell the user:
 - the file path and the decision, in one line
 - that the status is `proposed` until the PR is merged to `main`
 - that the review reads it only after it is `accepted` on `main`
+- that the push is ADR-only, so the workflow carries the previous verdict over and **no new review is needed**. The PR status stays the same as before the ADR was added.

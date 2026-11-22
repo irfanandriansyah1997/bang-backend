@@ -227,6 +227,7 @@ The workflow reads the second line to set the **Claude Review** status (ready â†
 **Local mode:**
 - Show the report in chat in the user's language. Use the same structure, with each finding under its `file:line`, plus the suggestion.
 - Offer to post it to the PR, as inline comments + summary, in English.
+- If the summary lists minors under *Skipped by the reviewer (`/skip-suggestion`)*, end the report with one question: "N minor finding(s) were skipped. Run `/adr-from-review <PR>` to write an ADR proposal so they are not raised again?" Do not write the ADR yourself.
 - Remove the temp worktree and branch.
 
 **CI mode:**
