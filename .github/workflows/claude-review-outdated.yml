@@ -24,8 +24,28 @@ jobs:
       REPO: ${{ github.repository }}
       SHA: ${{ github.event.pull_request.head.sha }}
       BASE_SHA: ${{ github.event.pull_request.base.sha }}
+      BEFORE_SHA: ${{ github.event.before }}
+      ACTION: ${{ github.event.action }}
       STATUS_CONTEXT: Claude Review # must match claude-review.yml and the ruleset
     steps:
+      - name: What did this push change?
+        id: push
+        run: |
+          # Only for a new push (synchronize). Compare the previous head with the new head:
+          # "ahead" means the new commits were added on top, with no rebase or force push.
+          carry=false
+          if [ "$ACTION" = "synchronize" ] && [ -n "$BEFORE_SHA" ]; then
+            cmp=$(gh api "repos/$REPO/compare/$BEFORE_SHA...$SHA" 2>/dev/null || true)
+            status=$(echo "$cmp" | jq -r '.status // empty')
+            files=$(echo "$cmp" | jq -r '.files[]?.filename' 2>/dev/null || true)
+            # Only ADR files (docs/adr/*.md). Any other file, even one line in code, means no carry.
+            if [ "$status" = "ahead" ] && [ -n "$files" ] && [ -z "$(echo "$files" | grep -vE '^docs/adr/[^/]+\.md$' || true)" ]; then
+              carry=true
+            fi
+          fi
+          echo "carry=$carry" >> "$GITHUB_OUTPUT"
+          echo "push carries the verdict: $carry"
+
       - name: Is this a docs-only change?
         id: docs
         run: |
@@ -42,6 +62,7 @@ jobs:
       - name: Set the status
         env:
           DOCS_ONLY: ${{ steps.docs.outputs.docs_only }}
+          CARRY: ${{ steps.push.outputs.carry }}
         run: |
           # Never overwrite a status that already exists for this commit (a review may already be running)
           existing=$(gh api "repos/$REPO/commits/$SHA/statuses" \
@@ -49,6 +70,21 @@ jobs:
           if [ "$existing" != "0" ]; then
             echo "$STATUS_CONTEXT already has a status on ${SHA:0:7}; leaving it as it is"
             exit 0
+          fi
+          if [ "$CARRY" = "true" ]; then
+            # ADR-only push on top of a reviewed commit: the verdict of the previous commit still holds.
+            prev=$(gh api "repos/$REPO/commits/$BEFORE_SHA/statuses" \
+              --jq '[.[] | select(.context == env.STATUS_CONTEXT)][0] // empty')
+            prev_state=$(echo "$prev" | jq -r '.state // empty')
+            if [ -n "$prev_state" ]; then
+              prev_desc=$(echo "$prev" | jq -r '.description')
+              gh api "repos/$REPO/statuses/$SHA" \
+                -f state="$prev_state" -f context="$STATUS_CONTEXT" \
+                -f description="ADR-only change: verdict carried from ${BEFORE_SHA:0:7} ($prev_desc)" >/dev/null
+              echo "$STATUS_CONTEXT on ${SHA:0:7}: $prev_state (carried from ${BEFORE_SHA:0:7})"
+              exit 0
+            fi
+            echo "previous commit has no $STATUS_CONTEXT status; falling back to pending"
           fi
           if [ "$DOCS_ONLY" = "true" ]; then
             gh api "repos/$REPO/statuses/$SHA" \
