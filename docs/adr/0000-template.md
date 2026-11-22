@@ -5,6 +5,7 @@
 - **Source:** PR #<number>, review thread <link or "summary comment">
 - **Area:** <for example: delivery/http, repository, usecase, CI>
 - **Applies to:** <what this decision covers, in one sentence>
+- **Reason source:** <reviewer | AI (the reviewer gave no reason)>
 
 ## Context
 
@@ -14,6 +15,12 @@ Describe the finding that was skipped, not the code that was reviewed.
 ## Decision
 
 What the team accepts or does, in one or two sentences. Be specific: a rule that a reviewer can check.
+
+Then the reason, in one of these two forms:
+
+> Reason given by the reviewer (@login): <the reviewer's own words from the `/skip-suggestion` reply>
+
+> Reason written by the AI (the reviewer gave none): <why the finding is acceptable for now, and what would make it worth fixing later>
 
 ## Consequences
 
