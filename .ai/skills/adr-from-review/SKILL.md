@@ -45,20 +45,18 @@ A finding counts as skipped only when the **last non-empty line of a reply by a 
 
 ## 1b. Check for an existing ADR first
 
-Before writing anything, see whether a decision on the same point already exists. Look at both `main` and the PR branch:
+Before writing anything, see whether a decision on the same point already exists. Read the ADRs on the current branch (the PR head). The engineer rebases from the latest `main` before the PR is reviewed, so the branch already has every ADR that is on `main`:
 
 ```bash
-git fetch -q origin main
-git ls-tree --name-only origin/main docs/adr/ | grep -E '/[0-9]{4}-.*\.md$' | while read f; do echo "== main: $f"; git show "origin/main:$f"; done
-git ls-tree --name-only HEAD docs/adr/ | grep -E '/[0-9]{4}-.*\.md$' | while read f; do echo "== PR branch: $f"; git show "HEAD:$f"; done
+git ls-tree --name-only HEAD docs/adr/ | grep -E '/[0-9]{4}-.*\.md$' | while read f; do echo "== $f"; git show "HEAD:$f"; done
 ```
 
 For each ADR, compare its **Area**, **Applies to**, and **Decision** with the skipped finding (same file or layer, same kind of problem):
 
 | What you find | What to do |
 |---|---|
-| An `accepted` ADR on `main` that covers the same point | **Do not write a new ADR.** Tell the user the existing ADR number and file, and stop. The finding is already decided. |
-| A `proposed` ADR in this PR or on another open PR that covers the same point | **Do not write a second one.** Tell the user which file already proposes it. |
+| An `accepted` ADR (it is on `main`, so the rebased branch has it) that covers the same point | **Do not write a new ADR.** Tell the user the existing ADR number and file, and stop. The finding is already decided. |
+| A `proposed` ADR in this PR that covers the same point | **Do not write a second one.** Tell the user which file already proposes it. |
 | A `superseded` ADR, or one about a different point | Not a match. Continue. |
 | Nothing similar | Continue to step 2. |
 
