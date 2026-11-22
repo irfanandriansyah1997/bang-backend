@@ -47,6 +47,72 @@ gh pr diff <PR> -R $R
 
 Focus on **changed lines**, plus the code they call when needed to judge them. Don't review untouched files.
 
+### 1b. Read the earlier review threads (CI mode, and local mode when re-running)
+
+Earlier runs may already have commented on this PR. Read them **before** you review, so you do not post the same finding again:
+
+```bash
+gh api graphql -f query='query($o:String!,$n:String!,$p:Int!){repository(owner:$o,name:$n){pullRequest(number:$p){reviewThreads(first:100){nodes{id isResolved path line comments(first:50){nodes{author{login} body}}}}}}}' \
+  -F o=irfanandriansyah1997 -F n=bang-backend -F p=<PR>
+```
+
+For each thread, decide its state from the **replies by people** (ignore replies by `claude[bot]`). To read a reply's decision:
+- Look only at the **last non-empty line** of the reply. `/skip-suggestion` anywhere else (in the middle of a long text) does not count.
+- Ignore lines that start with `>` (quoted text). A quote of the bot's comment must not be read as a decision.
+- The token must match exactly: `/skip-suggestion` on its own line, nothing else on that line.
+
+| Thread state | What to do with a new finding that matches it |
+|---|---|
+| Last line of a reply by a person is `/skip-suggestion` | **Minor only:** do not post it again. Add it to the summary under *Skipped by the reviewer*. **Blocker or major:** never skipped. Post it again (or keep it open) and say in the summary that `/skip-suggestion` was ignored because the finding blocks the merge. |
+| No reply, or a reply without `/skip-suggestion` | Do not post a duplicate. Keep the existing thread and mention it in the summary as *still open*. |
+| Resolved, and the line still has the problem | Post it again and say it came back. |
+| Resolved, and the line has changed | Treat it as a new finding: review the new code. |
+
+**Examples of replies** (the reviewer's decision is the last line of the reply).
+
+Allowed: a minor finding, skipped on purpose
+````text
+Fine to leave for now. We will handle the logging rule in a separate task.
+
+/skip-suggestion
+````
+
+Ignored: a major finding (it must be fixed, so the token does nothing)
+````text
+This is not worth fixing now.
+/skip-suggestion
+````
+
+Not counted: the token is not the last line
+````text
+/skip-suggestion is what I would like, but the logic needs fixing first.
+Please update the check.
+````
+
+Not counted: quoted text (a line that starts with `>`)
+````text
+> /skip-suggestion
+I agree with the bot's point.
+````
+
+Not counted: the token is on a line with other words
+````text
+Skip it /skip-suggestion
+````
+
+Not counted: the word without the slash, or a reply by the bot
+````text
+skip-suggestion
+````
+
+Not a skip: resolving the thread without the token. The finding stays open, so the minor still fails the verdict until it is fixed or skipped.
+
+**The skill never writes `/skip-suggestion` itself.** Only a person does, in their own reply.
+
+A finding **matches** a thread when the file is the same and the title (the bold text after the severity) is the same. Line numbers can change after a rebase, so do not use them alone.
+
+**`/skip-suggestion` only stops a minor from being posted again.** It never changes the verdict for blockers or majors. The only way to clear a blocker or major is to fix the code and push.
+
 ### 2. Gate (local mode only)
 
 Use a temp worktree so the user's checkout is never touched:
@@ -107,7 +173,13 @@ Also check by reading: thin handlers, business rules only in domain/usecase, dep
 
 If you are not sure that something can really cause an error or a regression, it is a nit: leave it out.
 
-**Verdict:** any blocker → **Blocked** · else any major → **Needs changes** · else **Ready** (minor findings are still reported). The workflow turns the verdict into the PR status: **Ready → success, Needs changes or Blocked → failure**.
+**Verdict:**
+- any blocker → **Blocked**
+- else any major → **Needs changes**
+- else any **open minor** (a minor that is not skipped with `/skip-suggestion`) → **Needs changes**
+- else **Ready**
+
+A minor that a reviewer skipped with `/skip-suggestion` does not count as open. The workflow turns the verdict into the PR status: **Ready → success, Needs changes or Blocked → failure**. Resolving a thread does not change the status: after a fix, comment `@claude-code-review` again.
 
 Don't invent findings to fill the report. A clean PR is **Ready** with "no findings". When unsure whether something is a real problem, say so, and mark it minor at most.
 
@@ -137,6 +209,11 @@ Findings go **on the lines they are about**, one comment per finding. The develo
   - When the fix touches other lines, adds a new file, or is a test to add, use a normal ` ```go ` block instead and say where it goes.
 - Only comment on lines that are in the diff (added, or context lines in a changed hunk). Findings about unchanged code, missing files, or the PR as a whole go in the summary.
 - Order of posting: blocker → major → minor. Up to **10 inline comments**; if there are more minors, put the rest in the summary as a list with `file:line` and no extra comment.
+
+**Summary comment: earlier discussion.** Add these sections when there are earlier threads (see step 1b):
+- **Skipped by the reviewer (`/skip-suggestion`):** minor findings the reviewer skipped, with `file:line`. Not posted again.
+- **Still open from earlier runs:** unresolved threads that still apply, with `file:line`.
+- **`/skip-suggestion` ignored:** blockers and majors that a reviewer tried to skip. Say that they must be fixed before merge.
 
 **Summary comment rules:** short, **does not repeat** what the inline comments already say, and links to them by listing `file:line` + title. Its first two lines are machine-readable markers:
 
@@ -174,3 +251,6 @@ The workflow reads the second line to set the **Claude Review** status (ready �
 - Re-run CI or re-trigger workflows.
 - Paste secrets, tokens, or `.env` content into a comment, even when reporting that one leaked: point to the file and line instead.
 - Review the whole repository: only what the PR changes.
+- Resolve review threads or delete comments. Only people resolve threads.
+- Let `/skip-suggestion` clear a blocker or a major. Only a code fix does that.
+- Write `/skip-suggestion` into any reply. Only a person decides to skip a minor.
