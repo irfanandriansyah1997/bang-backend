@@ -68,47 +68,6 @@ For each thread, decide its state from the **replies by people** (ignore replies
 | Resolved, and the line still has the problem | Post it again and say it came back. |
 | Resolved, and the line has changed | Treat it as a new finding: review the new code. |
 
-**Examples of replies** (the reviewer's decision is the last line of the reply):
-
-Allowed: a minor finding, skipped on purpose
-```
-Fine to leave for now. We will handle the logging rule in a separate task.
-
-/skip-suggestion
-```
-
-Ignored: a major finding (it must be fixed, so the token does nothing)
-```
-This is not worth fixing now.
-/skip-suggestion
-```
-
-Not counted: the token is not the last line
-```
-/skip-suggestion is what I would like, but the logic needs fixing first.
-Please update the check.
-```
-
-Not counted: quoted text (a line that starts with `>`)
-```
-> /skip-suggestion
-I agree with the bot's point.
-```
-
-Not counted: the token is on a line with other words
-```
-Skip it /skip-suggestion
-```
-
-Not counted: a bot reply, or the word without the slash
-```
-skip-suggestion
-```
-
-Not a skip: resolving the thread without the token. The finding stays open, so the minor still fails the verdict until it is fixed or skipped.
-
-**The skill never writes `/skip-suggestion` itself.** Only a person does, in their own reply.
-
 **Examples of replies** (the reviewer's decision is the last line of the reply).
 
 Allowed: a minor finding, skipped on purpose
@@ -294,5 +253,4 @@ The workflow reads the second line to set the **Claude Review** status (ready â†
 - Review the whole repository: only what the PR changes.
 - Resolve review threads or delete comments. Only people resolve threads.
 - Let `/skip-suggestion` clear a blocker or a major. Only a code fix does that.
-- Write `/skip-suggestion` into any reply. Only a person decides to skip a minor.
 - Write `/skip-suggestion` into any reply. Only a person decides to skip a minor.
