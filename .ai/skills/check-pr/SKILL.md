@@ -109,6 +109,47 @@ Not a skip: resolving the thread without the token. The finding stays open, so t
 
 **The skill never writes `/skip-suggestion` itself.** Only a person does, in their own reply.
 
+**Examples of replies** (the reviewer's decision is the last line of the reply).
+
+Allowed: a minor finding, skipped on purpose
+````text
+Fine to leave for now. We will handle the logging rule in a separate task.
+
+/skip-suggestion
+````
+
+Ignored: a major finding (it must be fixed, so the token does nothing)
+````text
+This is not worth fixing now.
+/skip-suggestion
+````
+
+Not counted: the token is not the last line
+````text
+/skip-suggestion is what I would like, but the logic needs fixing first.
+Please update the check.
+````
+
+Not counted: quoted text (a line that starts with `>`)
+````text
+> /skip-suggestion
+I agree with the bot's point.
+````
+
+Not counted: the token is on a line with other words
+````text
+Skip it /skip-suggestion
+````
+
+Not counted: the word without the slash, or a reply by the bot
+````text
+skip-suggestion
+````
+
+Not a skip: resolving the thread without the token. The finding stays open, so the minor still fails the verdict until it is fixed or skipped.
+
+**The skill never writes `/skip-suggestion` itself.** Only a person does, in their own reply.
+
 A finding **matches** a thread when the file is the same and the title (the bold text after the severity) is the same. Line numbers can change after a rebase, so do not use them alone.
 
 **`/skip-suggestion` only stops a minor from being posted again.** It never changes the verdict for blockers or majors. The only way to clear a blocker or major is to fix the code and push.
@@ -253,4 +294,5 @@ The workflow reads the second line to set the **Claude Review** status (ready â†
 - Review the whole repository: only what the PR changes.
 - Resolve review threads or delete comments. Only people resolve threads.
 - Let `/skip-suggestion` clear a blocker or a major. Only a code fix does that.
+- Write `/skip-suggestion` into any reply. Only a person decides to skip a minor.
 - Write `/skip-suggestion` into any reply. Only a person decides to skip a minor.
