@@ -43,6 +43,27 @@ gh api graphql -f query='query($o:String!,$n:String!,$p:Int!){repository(owner:$
 
 A finding counts as skipped only when the **last non-empty line of a reply by a person** is exactly `/skip-suggestion` (the same rule as `check-pr`). Lines starting with `>` do not count, and replies by `claude[bot]` do not count. If the summary says a major was skipped, stop and tell the user: majors are never skipped.
 
+## 1b. Check for an existing ADR first
+
+Before writing anything, see whether a decision on the same point already exists. Look at both `main` and the PR branch:
+
+```bash
+git fetch -q origin main
+git ls-tree --name-only origin/main docs/adr/ | grep -E '/[0-9]{4}-.*\.md$' | while read f; do echo "== main: $f"; git show "origin/main:$f"; done
+git ls-tree --name-only HEAD docs/adr/ | grep -E '/[0-9]{4}-.*\.md$' | while read f; do echo "== PR branch: $f"; git show "HEAD:$f"; done
+```
+
+For each ADR, compare its **Area**, **Applies to**, and **Decision** with the skipped finding (same file or layer, same kind of problem):
+
+| What you find | What to do |
+|---|---|
+| An `accepted` ADR on `main` that covers the same point | **Do not write a new ADR.** Tell the user the existing ADR number and file, and stop. The finding is already decided. |
+| A `proposed` ADR in this PR or on another open PR that covers the same point | **Do not write a second one.** Tell the user which file already proposes it. |
+| A `superseded` ADR, or one about a different point | Not a match. Continue. |
+| Nothing similar | Continue to step 2. |
+
+When two ADRs are close but not the same, write the new one and link to the old one in its Context, so the reader sees both.
+
 ## 2. Check the path rule before writing
 
 Run from the PR branch, and stop if anything fails:
