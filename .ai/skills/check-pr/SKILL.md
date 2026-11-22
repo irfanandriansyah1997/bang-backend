@@ -34,6 +34,7 @@ With no PR given in local mode, use the open PR for the current branch (`gh pr v
 - [ ] 2. Gate: lint + unit test (local mode only)
 - [ ] 3. Review: a. architecture  b. Go mistakes  c. primary test cases  d. repo conventions
 - [ ] 4. Grade findings and pick the verdict
+- [ ] 4b. Record skipped minors as ADRs (CI mode)
 - [ ] 5. Report (local: chat; CI: summary comment + inline comments)
 ```
 
@@ -183,6 +184,23 @@ A minor that a reviewer skipped with `/skip-suggestion` does not count as open. 
 
 Don't invent findings to fill the report. A clean PR is **Ready** with "no findings". When unsure whether something is a real problem, say so, and mark it minor at most.
 
+### 4b. Record skipped minors as ADRs (CI mode)
+
+Every **minor** that a person skipped with `/skip-suggestion` (step 1b) becomes a proposed ADR in the PR, so the reason is kept with the code. Follow the **CI mode** of [`adr-from-review`](../adr-from-review/SKILL.md) for each one:
+
+1. **Is it already decided?** Read the ADRs on the PR head (`Glob docs/adr/*.md`, then `Read` each one). If an `accepted` or `proposed` ADR already covers the same point (same file or layer, same kind of problem), **write nothing** for this finding and note the existing file in the summary.
+2. **The reason:** take the text of the person's reply **above** the `/skip-suggestion` line (without empty lines and `>` quotes). If there is none, write a short reason yourself and mark it as written by the AI. See *The reason* in `adr-from-review`.
+3. **The number:** the next free four-digit number on the PR head and on `origin/main` (`git ls-tree --name-only origin/main docs/adr/`).
+4. **Write** `docs/adr/NNNN-short-title.md` from `docs/adr/0000-template.md` with the `Write` tool, `Status: proposed`.
+
+Rules:
+- **Never** for a blocker or a major, even when someone replied `/skip-suggestion`.
+- Write only new files in `docs/adr/`. Never edit an existing ADR or any other file in the repository. Put temporary files (like the summary report) **outside** `docs/`.
+- **Never** run `git add`, `git commit`, or `git push`. The workflow step *Commit ADR* checks the new files, commits them as `github-actions[bot]`, and pushes them. That push changes only `docs/adr/*.md`, so the **Claude Review outdated** workflow carries this run's verdict over to the new commit, and no new review is needed.
+- Writing an ADR does **not** change the verdict. The verdict is already decided in step 4.
+
+**Local mode:** do not write ADRs. List the skipped minors in the chat and say that the CI review writes their ADRs (or the user can run `/adr-from-review <PR>`).
+
 ### 5. Report
 
 Findings go **on the lines they are about**, one comment per finding. The developer is new to Go and reads each problem next to its code. One giant comment loses that context. Templates: [`references/report-template.md`](references/report-template.md).
@@ -214,6 +232,14 @@ Findings go **on the lines they are about**, one comment per finding. The develo
 - **Skipped by the reviewer (`/skip-suggestion`):** minor findings the reviewer skipped, with `file:line`. Not posted again.
 - **Still open from earlier runs:** unresolved threads that still apply, with `file:line`.
 - **`/skip-suggestion` ignored:** blockers and majors that a reviewer tried to skip. Say that they must be fixed before merge.
+- **ADR for skipped suggestions (CI mode):** one line per skipped minor (step 4b), for example:
+
+  ```markdown
+  - `internal/delivery/http/errors.go:27` **Raw error text in 5xx logs** → wrote `docs/adr/0001-log-raw-5xx-error-text.md` (reason from the reviewer)
+  - `internal/foo/bar.go:10` **Missing test for empty input** → already covered by `docs/adr/0003-...md`, nothing written
+  ```
+
+  Add: *New ADR files are committed to this PR by the workflow right after this comment.*
 
 **Summary comment rules:** short, **does not repeat** what the inline comments already say, and links to them by listing `file:line` + title. Its first two lines are machine-readable markers:
 
@@ -247,7 +273,7 @@ The workflow reads the second line to set the **Claude Review** status (ready �
 
 ## Never
 
-- Approve, request changes as a formal review, merge, push, or edit files in the PR. This skill only comments.
+- Approve, request changes as a formal review, merge, push, commit, or edit files in the PR. This skill only comments. The one exception: in CI mode it may **create** new `docs/adr/NNNN-*.md` files (step 4b), which the workflow commits.
 - Re-run CI or re-trigger workflows.
 - Paste secrets, tokens, or `.env` content into a comment, even when reporting that one leaked: point to the file and line instead.
 - Review the whole repository: only what the PR changes.
